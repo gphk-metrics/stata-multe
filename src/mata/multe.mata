@@ -2,8 +2,13 @@ cap mata mata drop multe_helper_ols()
 cap mata mata drop multe_helper_olsw()
 
 mata
-void function MulTE(real colvector Y, real colvector X, real matrix W)
+void function MulTE(real colvector Y, real colvector X, real matrix Wm)
 {
+    real scalar n
+    real vector xlevels, X0, alpha0, lam, alphac, resc, ts, s0
+    real matrix Xm, psi_alpha0, ps, Xt
+    real matrix est, se_or, se_po
+
     n       = rows(Y)
     xlevels = uniqrows(X)
     X0      = (X :== xlevels[1])
