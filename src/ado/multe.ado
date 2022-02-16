@@ -25,4 +25,5 @@ program multe, eclass
     mata Wm = designmatrix(st_data(., "`control'", "`touse'"))
     mata Y  = st_data(., "`depvar'",    "`touse'")
     mata X  = st_data(., "`treatment'", "`touse'")
+    mata MulTE(Y, X, Wm)
 end
