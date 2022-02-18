@@ -22,8 +22,12 @@ program multe, eclass
     marksample touse, strok
 
     * Copy to mata for mata fun
+    tempname results
     mata Wm = designmatrix(st_data(., "`control'", "`touse'"))
-    mata Y  = st_data(., "`depvar'",    "`touse'")
-    mata X  = st_data(., "`treatment'", "`touse'")
-    mata MulTE(Y, X, Wm)
+    mata `results' = MulTE("`depvar'", "`treatment'", Wm, "`touse'")
+
+    tempname outmatrix
+    mata `results'.print()
+    mata `results'.export("`outmatrix'")
+    return matrix results = `outmatrix'
 end

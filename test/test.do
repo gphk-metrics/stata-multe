@@ -25,6 +25,7 @@ program loat_test_data
     replace treatment = 2 if treatmentlab == "small"
     replace treatment = 3 if treatmentlab == "aide"
     label define treatmentlab 1 "regular" 2 "small" 3 "aide"
+    label values treatment treatmentlab
     factor school    = schoollab,  replace
     factor teacher   = teacherlab, replace
 end
