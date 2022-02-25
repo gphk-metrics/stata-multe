@@ -7,15 +7,14 @@ program main
     * mata mata clear
     * do src/ado/multe.ado
     * do src/mata/multe_helpers.mata
-    * do src/mata/multe_decomposition.mata
     * do src/mata/multe.mata
-    loat_test_data
+    load_test_data
     multe score treatment, control(school)
     mata mata desc
 end
 
-capture program drop loat_test_data
-program loat_test_data
+capture program drop load_test_data
+program load_test_data
     use `"${data}/STARgk_Lambdas.dta"', clear
 
     gen treatment = "regular"

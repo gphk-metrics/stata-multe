@@ -1,4 +1,4 @@
-v 0.1.1
+v 0.1.2
 d
 d 'MULTE': Multiple Treatment Effects regression
 d
@@ -16,4 +16,3 @@ f src/ado/multe.ado
 f doc/multe.sthlp
 f src/mata/multe.mata
 f src/mata/multe_helpers.mata
-f src/mata/multe_decomposition.mata

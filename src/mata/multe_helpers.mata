@@ -2,9 +2,7 @@ cap mata mata drop multe_helper_ols()
 cap mata mata drop multe_helper_olsw()
 cap mata mata drop multe_helper_olsr()
 cap mata mata drop multe_helper_results()
-
-mata
-end
+cap mata mata drop multe_helper_antiselect()
 
 mata
 struct multe_helper_results {
@@ -36,5 +34,13 @@ struct multe_helper_results scalar function multe_helper_olswr(real matrix Y, re
     results.coefficients = qrinv(cross(X :* W, X)) * cross(X :* W, Y)
     results.residuals    = Y - X * results.coefficients
     return(results)
+}
+
+real matrix function multe_helper_antiselect(real matrix x, real vector ix)
+{
+    real vector sel
+    sel = rows(ix) > cols(ix)? J(rows(x), 1, 1): J(1, cols(x), 1)
+    sel[ix] = J(length(ix), 1, 0)
+    return(select(x, sel))
 }
 end

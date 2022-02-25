@@ -1,4 +1,4 @@
-*! version 0.1.1 25Feb2022
+*! version 0.1.2 25Feb2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com>
@@ -30,10 +30,12 @@ program multe, rclass
     mata Wm = designmatrix(st_data(., "`control'", "`touse'"))
     mata `results' = MulTE("`depvar'", "`treatment'", Wm, "`touse'")
 
-    tempname outmatrix
-    mata `results'.print()
-    mata `results'.save("`outmatrix'")
-    return matrix results = `outmatrix'
+    tempname estmatrix decompmatrix
+    mata `results'.estimates.print()
+    mata `results'.estimates.save("`estmatrix'")
+    mata `results'.decomposition.save("`decompmatrix'")
+    return matrix estimates     = `estmatrix'
+    return matrix decomposition = `decompmatrix'
 
     * Cleanup mata object if no save
     if "`matasave'" == "" mata mata drop `results'

@@ -1,4 +1,6 @@
 cap mata mata drop MulTE()
+cap mata mata drop MulTE_Estimates()
+cap mata mata drop MulTE_Decomposition()
 cap mata mata drop MulTE_Results()
 
 mata
@@ -6,7 +8,13 @@ mata
 // Tvar  = "`treatment'"
 // touse = "`touse'"
 
-class MulTE_Results
+struct MulTE_Results
+{
+    class MulTE_Estimates scalar estimates
+    class MulTE_Decomposition scalar decomposition
+}
+
+class MulTE_Estimates
 {
     real matrix est
     real matrix se_po
@@ -20,21 +28,39 @@ class MulTE_Results
     void save()
 }
 
-
-class MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real matrix Wm, string scalar touse)
+class MulTE_Decomposition
 {
-    class MulTE_Results scalar results
-    struct multe_helper_results scalar rk
+    real matrix tmp
+    real matrix est
+    real matrix se
+    real   vector Tvalues
+    string vector Tlabels
+    string vector colnames
+
+    void new()
+    void print()
+    void save()
+}
+
+struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real matrix Wm, string scalar touse)
+{
+    struct MulTE_Results scalar results
+    struct multe_helper_results scalar rk, ri, rd, rddX
 
     string scalar Tlab
 
     real scalar j, n, k, kw, j1, j2
     real vector Y, X
     real vector xlevels, X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean
-    real matrix Xm, psi_alpha0, ps, Xt
-    real matrix est, se_or, se_po
+    real matrix Xm, psi_alpha0, ps, Xt, WmXm
+    real matrix gamma, psi_gamma, deltak, psi_deltak, ddX, M, psi
+    real matrix est, estk, se_or, se_po, se, psimin, psimax
     real matrix alphak, psi_alphak, psi_or, psi_po
-    real vector s, Xdot, eps, sk
+    real vector s, Xdot, eps, sk, ghelper, gi, gd, di
+
+    // -----------------------------------------------------------------
+    // Setup
+    // -----------------------------------------------------------------
 
     Y       = st_data(., Yvar, touse)
     X       = st_data(., Tvar, touse)
@@ -64,6 +90,11 @@ class MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real ma
 
 // TODO: xx figure out if selectindex(s) is faster
 // TODO: xx or maybe make subset vars at start of loop
+
+    // -----------------------------------------------------------------
+    // TE estimates
+    // -----------------------------------------------------------------
+
     Wmean = colsum(Wm) / n
     for(j = 2; j <= k; j++) {
         alphak  = multe_helper_ols(select(Y, Xm[., j]), select(Wm, Xm[., j]))
@@ -98,32 +129,105 @@ class MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real ma
     }
 
     Tlab = st_varvaluelabel(Tvar)
-    results.est   = est
-    results.se_po = se_po
-    results.se_or = se_or
-    results.Tvalues = xlevels
-    results.Tlabels = Tlab == ""? strofreal(xlevels): st_vlmap(Tlab, xlevels)
+    results.estimates.est   = est
+    results.estimates.se_po = se_po
+    results.estimates.se_or = se_or
+    results.estimates.Tvalues = xlevels
+    results.estimates.Tlabels = Tlab == ""? strofreal(xlevels): st_vlmap(Tlab, xlevels)
 
+// TODO: xx decide whether to make decomposition a separate function
+
+    // -----------------------------------------------------------------
+    // Decomposition (not run)
+    // -----------------------------------------------------------------
+
+    // From R> matrix of controls Wm including intercept; X must be a
+    // From R> factor, first level to be dropped
+    Xm   = Xm[., 2::k]
+    WmXm = J(n, kw + (k - 1) * kw, 0)
+    WmXm[|1, 1 \ n, kw|] = Wm
+    for(j = 1; j < k; j++) {
+        j1 = kw + (j - 1) * kw + 1
+        j2 = kw + (j - 0) * kw
+        WmXm[|1, j1 \ n, j2|] = Xm[., j] :* Wm
+    }
+    ri = multe_helper_olsr(Y, WmXm) // interactions
+
+    gamma = ri.coefficients[|(kw+1) \ cols(WmXm)|]
+    psi_gamma = ((ri.residuals :* WmXm) *
+                  invsym(cross(WmXm, WmXm)))[|(1, kw+1) \ (n, cols(WmXm))|]
+    rd = multe_helper_olsr(WmXm[|(1, kw+1) \ (n, cols(WmXm))|], (Xm, Wm)) // delta
+
+    // Sort columns by size
+    ghelper = rowshape(colshape(J(kw, 1, 1::(k-1)), k-1)', kw * (k - 1))
+    gi  = order((ghelper, gamma), (1, 2))
+    gd  = order((ghelper, gamma), (1, -2))
+    est = se = J(k-1, 5, .)
+
+    // Standard errors
+    for (j = 1; j < k; j++) {
+        rddX = multe_helper_olsr(Xm[., j], (multe_helper_antiselect(Xm, j), Wm))
+        ddX  = rddX.residuals // ddot(X)
+
+        deltak     = rd.coefficients[j, .]'
+        psi_deltak = ddX :* rd.residuals / sum(ddX:^2)
+
+        M    = I(k - 1)#J(kw, 1, 1)
+        psi  = psi_deltak * (gamma :* M) + psi_gamma * (deltak :* M)
+        estk = gamma' * (deltak :* M)
+
+        // Sort delta columns
+        di = order((ghelper, deltak), (1, 2))
+
+        psimax = psi_deltak[., di] * (gamma[gi] :* M) + psi_gamma[., gi] * (deltak[di] :* M)
+        psimin = psi_deltak[., di] * (gamma[gd] :* M) + psi_gamma[., gd] * (deltak[di] :* M)
+
+        est[j,.] = (
+            sum(estk),
+            estk[j],
+            sum(multe_helper_antiselect(estk, j)),
+            sum(gamma[gi]' * multe_helper_antiselect(deltak[di] :* M, j)),
+            sum(gamma[gd]' * multe_helper_antiselect(deltak[di] :* M, j))
+        )
+
+        se[j,.] = sqrt((
+            sum(rowsum(psi):^2),
+            sum(psi[., j]:^2),
+            sum(rowsum(multe_helper_antiselect(psi, j)):^2),
+            sum(rowsum(multe_helper_antiselect(psimax, j)):^2),
+            sum(rowsum(multe_helper_antiselect(psimin, j)):^2)
+        ))
+    }
+
+// TODO: xx "beta", "own", "cont. bias", "maxbias", minbias"
+// TODO: xx rownames are labels or "se"
+    results.decomposition.est = est
+    results.decomposition.se  = se
+    results.decomposition.tmp = rowshape((est, se), 2 * rows(est))
+    results.decomposition.Tvalues = xlevels
+    results.decomposition.Tlabels = results.estimates.Tlabels
+
+    results.decomposition.tmp
     return(results)
 }
 
-void function MulTE_Results::new()
+void function MulTE_Estimates::new()
 {
     colnames = ("ATE", "1-at-a-time", "common weights")'
 }
 
-void function MulTE_Results::save(string scalar outmatrix)
+void function MulTE_Estimates::save(string scalar outmatrix)
 {
     string vector rownames
     rownames = Tlabels[2::length(Tvalues)], J(rows(est), 1, "se"), J(rows(est), 1, "oracle_se")
     rownames = rowshape(rownames, rows(est) * 3)
 
     st_matrix(outmatrix, rowshape((est, se_po, se_or), rows(est) * 3))
-    st_matrixcolstripe(outmatrix, (J(3, 1, ""), colnames))
+    st_matrixcolstripe(outmatrix, (J(cols(est), 1, ""), colnames))
     st_matrixrowstripe(outmatrix, (J(3 * rows(est), 1, ""), rownames))
 }
 
-void function MulTE_Results::print(| real scalar digits)
+void function MulTE_Estimates::print(| real scalar digits)
 {
     real scalar i, j
     real vector lengths
@@ -175,5 +279,26 @@ void function MulTE_Results::print(| real scalar digits)
         }
         printf("|\n")
     }
+}
+
+
+void function MulTE_Decomposition::new()
+{
+    colnames = ("beta", "own", "cont bias", "maxbias", "minbias")'
+}
+
+void function MulTE_Decomposition::save(string scalar outmatrix)
+{
+    string vector rownames
+    rownames = Tlabels[2::length(Tvalues)], J(rows(est), 1, "se")
+    rownames = rowshape(rownames, rows(est) * 2)
+
+    st_matrix(outmatrix, rowshape((est, se), rows(est) * 2))
+    st_matrixcolstripe(outmatrix, (J(cols(est), 1, ""), colnames))
+    st_matrixrowstripe(outmatrix, (J(2 * rows(est), 1, ""), rownames))
+}
+
+void function MulTE_Decomposition::print(| real scalar digits)
+{
 }
 end

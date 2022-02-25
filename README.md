@@ -14,7 +14,7 @@ MulTE
 
 Multiple Treatment Effects regression
 
-`version 0.1.1 25Feb2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
+`version 0.1.2 25Feb2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
 
 ### Installation
 
@@ -57,4 +57,5 @@ gen T = (runiform() > 0.5) + 1
 gen W = mod(_n, 10) + 1
 gen Y = T + runiform()
 multe Y T, control(W)
+return list
 ```
