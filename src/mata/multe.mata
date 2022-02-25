@@ -1,9 +1,11 @@
 cap mata mata drop MulTE()
 cap mata mata drop MulTE_Results()
-cap mata mata drop multe_helper_ols()
-cap mata mata drop multe_helper_olsw()
 
 mata
+// Yvar  = "`depvar'"
+// Tvar  = "`treatment'"
+// touse = "`touse'"
+
 class MulTE_Results
 {
     real matrix est
@@ -13,27 +15,33 @@ class MulTE_Results
     string vector Tlabels
     string vector colnames
 
+    void new()
     void print()
-    void export()
+    void save()
 }
+
 
 class MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real matrix Wm, string scalar touse)
 {
     class MulTE_Results scalar results
+    struct multe_helper_results scalar rk
 
     string scalar Tlab
 
-    real scalar j, n, k
+    real scalar j, n, k, kw, j1, j2
     real vector Y, X
-    real vector xlevels, X0, alpha0, lam, rcalpha, rcres, rkalpha, rkres, ts, s0, Wmean
+    real vector xlevels, X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean
     real matrix Xm, psi_alpha0, ps, Xt
     real matrix est, se_or, se_po
+    real matrix alphak, psi_alphak, psi_or, psi_po
+    real vector s, Xdot, eps, sk
 
     Y       = st_data(., Yvar, touse)
     X       = st_data(., Tvar, touse)
     n       = rows(Y)
     xlevels = uniqrows(X)
     k       = length(xlevels)
+    kw      = cols(Wm)
     X0      = (X :== xlevels[1])
     Xm      = designmatrix(X)
     alpha0  = multe_helper_ols(select(Y, X0), select(Wm, X0))
@@ -54,9 +62,8 @@ class MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real ma
     ts = Wm * multe_helper_ols(rcres :* Xm :/ (ps:^2)  :* lam, Wm)
     s0 = Wm * multe_helper_ols(rcres :* X0 :/ ps[., 1] :* (lam:^2) :/ (ps:^2), Wm)
 
-* TODO: xx figure out if selectindex(s) is faster
-* TODO: xx or maybe make subset vars at start of loop
-    // loop xx
+// TODO: xx figure out if selectindex(s) is faster
+// TODO: xx or maybe make subset vars at start of loop
     Wmean = colsum(Wm) / n
     for(j = 2; j <= k; j++) {
         alphak  = multe_helper_ols(select(Y, Xm[., j]), select(Wm, Xm[., j]))
@@ -72,10 +79,9 @@ class MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real ma
 
         s               = (X0 :| Xm[., j])
         Xdot            = select(Xm[., j], s) - select(Wm, s) * multe_helper_ols(select(Xm[., j], s), select(Wm, s))
-        rkalpha         = multe_helper_ols(select(Y, s), (Xdot, select(Wm, s)))
-        est[j - 1, 2]   = rkalpha[1]
-        rkres           = select(Y, s) - (Xdot, select(Wm, s)) * rkalpha
-        se_po[j - 1, 2] = sqrt(sum((rkres:^2) :* (Xdot:^2)) / sum(Xdot:^2):^2)
+        rk              = multe_helper_olsr(select(Y, s), (Xdot, select(Wm, s)))
+        est[j - 1, 2]   = rk.coefficients[1]
+        se_po[j - 1, 2] = sqrt(sum((rk.residuals:^2) :* (Xdot:^2)) / sum(Xdot:^2):^2)
 
         eps = select(Xm[., j], s) :* (select(Y, s) - select(Wm, s) * alphak) +
               select(X0, s) :* (select(Y, s) - select(Wm, s) * alpha0)
@@ -97,24 +103,16 @@ class MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real ma
     results.se_or = se_or
     results.Tvalues = xlevels
     results.Tlabels = Tlab == ""? strofreal(xlevels): st_vlmap(Tlab, xlevels)
+
+    return(results)
 }
 
-real matrix function multe_helper_ols(real matrix Y, real matrix X)
-{
-    return(invsym(cross(X, X)) * cross(X, Y))
-}
-
-real matrix function multe_helper_olsw(real matrix Y, real matrix X, real matrix W)
-{
-    return(qrinv(cross(X :* W, X)) * cross(X :* W, Y))
-}
-
-void function MulTE_Results::init()
+void function MulTE_Results::new()
 {
     colnames = ("ATE", "1-at-a-time", "common weights")'
 }
 
-void function MulTE_Results::export(string scalar outmatrix)
+void function MulTE_Results::save(string scalar outmatrix)
 {
     string vector rownames
     rownames = Tlabels[2::length(Tvalues)], J(rows(est), 1, "se"), J(rows(est), 1, "oracle_se")
@@ -178,16 +176,4 @@ void function MulTE_Results::print(| real scalar digits)
         printf("|\n")
     }
 }
-
-void function xx(formats, colnames)
-{
-    printf("|")
-    printf(formats[1], "")
-    for (j = 1; j <= length(colnames); j++) {
-        printf("|")
-        printf(formats[j + 1], colnames[j])
-    }
-    printf("|\n")
-}
-
 end

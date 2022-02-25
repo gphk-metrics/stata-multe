@@ -15,3 +15,6 @@ Y  <- dt$score
 X  <- dt$treatment
 rg <- te_estimates(dt$score, dt$treatment, Wm)
 print(knitr::kable(rg))
+ret <- decomposition(dt$score, dt$treatment, Wm)
+print(ret)
+print(decomposition2(dt$score, dt$treatment, Wm))

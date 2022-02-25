@@ -4,8 +4,11 @@ global data	"${star}/Data"
 capture program drop main
 program main
 
-    * do ../src/ado/multe.ado
-    * do ../src/mata/multe.mata
+    * mata mata clear
+    * do src/ado/multe.ado
+    * do src/mata/multe_helpers.mata
+    * do src/mata/multe_decomposition.mata
+    * do src/mata/multe.mata
     loat_test_data
     multe score treatment, control(school)
     mata mata desc

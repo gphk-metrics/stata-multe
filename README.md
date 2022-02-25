@@ -4,7 +4,7 @@ MulTE
 <!--
 
     README.md
-    manyiv.pkg
+    multe.pkg
     stata.toc
     doc/multe.sthlp
     src/ado/multe.ado
@@ -14,7 +14,7 @@ MulTE
 
 Multiple Treatment Effects regression
 
-`version 0.1.0 16Feb2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
+`version 0.1.1 25Feb2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
 
 ### Installation
 
@@ -53,8 +53,8 @@ help multe
 clear
 set seed 1729
 set obs 1000
-gen T = runiform() > 0.5
-gen W = mod(_n, 10)
+gen T = (runiform() > 0.5) + 1
+gen W = mod(_n, 10) + 1
 gen Y = T + runiform()
 multe Y T, control(W)
 ```

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.1.0 16Feb2022}{...}
+{* *! version 0.1.1 25Feb2022}{...}
 {viewerdialog multe "dialog multe"}{...}
 {vieweralsosee "[R] multe" "mansection R multe"}{...}
 {viewerjumpto "Syntax" "multe##syntax"}{...}
@@ -30,6 +30,8 @@ Run multiple IV regressions:
 {marker table_options}{...}
 {synopthdr}
 {synoptline}
+{synopt :{opth mata:save(str)}} Save mata object with results.
+{p_end}
 {synopt :{opth xx(str)}} Option xx.
 {p_end}
 
