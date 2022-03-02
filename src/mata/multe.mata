@@ -101,8 +101,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
         psi_alphak = (Xm[.,j] :* (Y - Wm * alphak) :* Wm) * qrinv(cross(Xm[., j] :* Wm, Wm) / n)
 
         // ATE
-        est[j - 1, 1] = (Wmean * (alphak - alpha0)) / n
-        psi_or = ((psi_alphak - psi_alpha0) * Wmean') / n
+        est[j - 1, 1] = (Wmean * (alphak - alpha0))
+        psi_or = ((psi_alphak - psi_alpha0) * Wmean')
         se_or[j - 1, 1] = sqrt(variance(psi_or) * (n - 1) / n^2)
         se_po[j - 1, 1] = sqrt(variance(psi_or + ((Wm :-  Wmean) * (alphak - alpha0))) * (n - 1) / n^2)
 
