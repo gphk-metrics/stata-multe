@@ -6,10 +6,13 @@ program main
 
     mata mata clear
     do src/ado/multe.ado
+	do src/ado/output.ado
     do src/mata/multe_helpers.mata
     do src/mata/multe.mata
+	do src/mata/export_latex.mata
     load_test_data
-    multe score treatment, control(school)
+    multe score treatment, control(school) matasave(results)
+	output, treatment(treatment) matasave(results) // outpath("${star}/Output/tables/test") // pick your outpath
     mata mata desc
 end
 
