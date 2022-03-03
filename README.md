@@ -1,20 +1,9 @@
 MulTE
 =====
 
-<!--
-
-    README.md
-    multe.pkg
-    stata.toc
-    doc/multe.sthlp
-    src/ado/multe.ado
-    src/mata/multe.mata
-
--->
-
 Multiple Treatment Effects regression
 
-`version 0.1.2 25Feb2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
+`version 0.1.3 02Mar2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
 
 ### Installation
 
