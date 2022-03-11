@@ -33,6 +33,8 @@ class MulTE_Decomposition
     real matrix tmp
     real matrix est
     real matrix se
+    real matrix tauhat
+    real matrix lambda
     real   vector Tvalues
     string vector Tlabels
     string vector colnames
@@ -197,7 +199,22 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
             sum(rowsum(multe_helper_antiselect(psimax, j)):^2),
             sum(rowsum(multe_helper_antiselect(psimin, j)):^2)
         ))
+ 
     }
+
+    // Control-specific TEs and weights
+    1
+    gammam = rowshape(gamma, k-1) // w x k matrix
+    2
+    tauhat = Wm * gammam' // N x k matrix
+    // confirmed this is good. N x 2 matrix, with gammas populated for appropriate groups for the whole sample (N)
+    3
+    // TODO: add lambdas. I'm not sure these lambdas are the same as the ones in my Stata code.
+    lambda = Xt[.,2::k] :* Xm * invsym(Xt[.,2::k]' * Xt[.,2::k])
+    4
+    beta_hat = colsum(tauhat :* lambda)
+    5
+    beta_hat
 
 // TODO: xx "beta", "own", "cont. bias", "maxbias", minbias"
 // TODO: xx rownames are labels or "se"
@@ -206,6 +223,10 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     results.decomposition.tmp = rowshape((est, se), 2 * rows(est))
     results.decomposition.Tvalues = xlevels
     results.decomposition.Tlabels = results.estimates.Tlabels
+    6
+    results.decomposition.tauhat = tauhat
+    7
+    results.decomposition.lambda = lambda
 
     results.decomposition.tmp
     return(results)

@@ -1,5 +1,7 @@
 global star "~/Dropbox/GPH_ExaminerDesign/Applications/STAR"
 global data	"${star}/Data"
+// global star "/Users/jchang42/Dropbox (Brown)/GPH_ExaminerDesign/Applications/STAR"
+// global data "${star}/Data"
 
 capture program drop main
 program main
