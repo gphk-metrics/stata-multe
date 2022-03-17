@@ -53,11 +53,12 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
 
     real scalar j, n, k, kw, j1, j2
     real vector Y, X
-    real vector xlevels, X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean
+    real vector xlevels, X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean, Pr_W, beta_hat
     real matrix Xm, psi_alpha0, ps, Xt, WmXm
     real matrix gamma, psi_gamma, deltak, psi_deltak, ddX, M, psi
     real matrix est, estk, se_or, se_po, se, psimin, psimax
     real matrix alphak, psi_alphak, psi_or, psi_po
+    real matrix delta_kl, lambda, gammam, tauhat
     real vector s, Xdot, eps, sk, ghelper, gi, gd, di
 
     // -----------------------------------------------------------------
@@ -145,6 +146,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
 
     // From R> matrix of controls Wm including intercept; X must be a
     // From R> factor, first level to be dropped
+
+    // JC: Wm doesn't have a constant, right? Is it supposed to? 3/14/22
     Xm   = Xm[., 2::k]
     WmXm = J(n, kw + (k - 1) * kw, 0)
     WmXm[|1, 1 \ n, kw|] = Wm
@@ -203,17 +206,14 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     }
 
     // Control-specific TEs and weights
-    1
+    delta_kl = rowshape(rowshape(rd.coefficients[1..(k-1),.], 1), (k-1)*(k-1))'
+    Pr_W = mean(Wm)'
+    lambda = Wm * (delta_kl :/ Pr_W)
+    
     gammam = rowshape(gamma, k-1) // w x k matrix
-    2
-    tauhat = Wm * gammam' // N x k matrix
-    // confirmed this is good. N x 2 matrix, with gammas populated for appropriate groups for the whole sample (N)
-    3
-    // TODO: add lambdas. I'm not sure these lambdas are the same as the ones in my Stata code.
-    lambda = Xt[.,2::k] :* Xm * invsym(Xt[.,2::k]' * Xt[.,2::k])
-    4
-    beta_hat = colsum(tauhat :* lambda)
-    5
+    tauhat = Wm * gammam'         // N x k matrix
+    
+    beta_hat = mean((tauhat, tauhat) :* lambda)
     beta_hat
 
 // TODO: xx "beta", "own", "cont. bias", "maxbias", minbias"
@@ -223,9 +223,7 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     results.decomposition.tmp = rowshape((est, se), 2 * rows(est))
     results.decomposition.Tvalues = xlevels
     results.decomposition.Tlabels = results.estimates.Tlabels
-    6
     results.decomposition.tauhat = tauhat
-    7
     results.decomposition.lambda = lambda
 
     results.decomposition.tmp

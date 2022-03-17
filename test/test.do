@@ -14,7 +14,7 @@ program main
 	do test/export_latex.mata
     load_test_data
     multe score treatment, control(school) matasave(results)
-	output, treatment(treatment) matasave(results) ///
+	// output, treatment(treatment) matasave(results) ///
         // outpath("${star}/Output/tables/test") // pick your outpath
     mata mata desc
 end
