@@ -213,8 +213,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     gammam = rowshape(gamma, k-1) // w x k matrix
     tauhat = Wm * gammam'         // N x k matrix
     
-    beta_hat = mean((tauhat, tauhat) :* lambda)
-    beta_hat
+    // Sanity Check: this should match decomposition:
+    // beta_hat = mean((tauhat, tauhat) :* lambda)
 
 // TODO: xx "beta", "own", "cont. bias", "maxbias", minbias"
 // TODO: xx rownames are labels or "se"
