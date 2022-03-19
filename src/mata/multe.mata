@@ -98,7 +98,7 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     // TE estimates
     // -----------------------------------------------------------------
 
-    Wmean = colsum(Wm) / n
+    Wmean = mean(Wm)
     for(j = 2; j <= k; j++) {
         alphak  = multe_helper_ols(select(Y, Xm[., j]), select(Wm, Xm[., j]))
         psi_alphak = (Xm[.,j] :* (Y - Wm * alphak) :* Wm) * qrinv(cross(Xm[., j] :* Wm, Wm) / n)
@@ -110,7 +110,6 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
         se_po[j - 1, 1] = sqrt(variance(psi_or + ((Wm :-  Wmean) * (alphak - alpha0))) * (n - 1) / n^2)
 
         // One treatment at a time
-
         s               = (X0 :| Xm[., j])
         Xdot            = select(Xm[., j], s) - select(Wm, s) * multe_helper_ols(select(Xm[., j], s), select(Wm, s))
         rk              = multe_helper_olsr(select(Y, s), (Xdot, select(Wm, s)))
@@ -206,9 +205,14 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     }
 
     // Control-specific TEs and weights
+    //     - rd has coefficients of reg of X * W on X, W
+    //     - 1..(k-1) rows are coefs of X[., 1..(k-1)]
+    //     - reshape so lth set of 1..(k-1) columns has coefs
+    //       for X[., l] corresponding to X[., 1..(k-1)] * W
+    //       (i.e. X[., l] for X[., 1] * W, ..., X[., k-1] * W)
     delta_kl = rowshape(rowshape(rd.coefficients[1..(k-1),.], 1), (k-1)*(k-1))'
-    Pr_W = mean(Wm)'
-    lambda = Wm * (delta_kl :/ Pr_W)
+    Pr_W     = mean(Wm)'
+    lambda   = Wm * (delta_kl :/ Pr_W)
     
     gammam = rowshape(gamma, k-1) // w x k matrix
     tauhat = Wm * gammam'         // N x k matrix
