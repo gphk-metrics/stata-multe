@@ -28,7 +28,7 @@ config_files = [
     ('README.md', 'version {major}.{minor}.{patch} {date:%d%b%Y}'),
     ('multe.pkg', 'v {major}.{minor}.{patch}'),
     ('multe.pkg', 'd Distribution-Date: {date:%Y%m%d}'),
-    ('stata.toc', 'v 0.1.2'),
+    ('stata.toc', 'v {major}.{minor}.{patch}'),
     ('doc/multe.sthlp', 'version {major}.{minor}.{patch} {date:%d%b%Y}'),
     ('src/ado/multe.ado', 'version {major}.{minor}.{patch} {date:%d%b%Y}')
 ]
