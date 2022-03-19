@@ -37,6 +37,9 @@ program multe, rclass
     return matrix estimates     = `estmatrix'
     return matrix decomposition = `decompmatrix'
 
+    * TODO:
+    * save tauhats and lambda weights
+
     * Cleanup mata object if no save
     if "`matasave'" == "" mata mata drop `results'
 end

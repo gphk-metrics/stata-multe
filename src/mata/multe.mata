@@ -33,6 +33,8 @@ class MulTE_Decomposition
     real matrix tmp
     real matrix est
     real matrix se
+    real matrix tauhat
+    real matrix lambda
     real   vector Tvalues
     string vector Tlabels
     string vector colnames
@@ -51,11 +53,12 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
 
     real scalar j, n, k, kw, j1, j2
     real vector Y, X
-    real vector xlevels, X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean
+    real vector xlevels, X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean, Pr_W, beta_hat
     real matrix Xm, psi_alpha0, ps, Xt, WmXm
     real matrix gamma, psi_gamma, deltak, psi_deltak, ddX, M, psi
     real matrix est, estk, se_or, se_po, se, psimin, psimax
     real matrix alphak, psi_alphak, psi_or, psi_po
+    real matrix delta_kl, lambda, gammam, tauhat
     real vector s, Xdot, eps, sk, ghelper, gi, gd, di
 
     // -----------------------------------------------------------------
@@ -143,6 +146,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
 
     // From R> matrix of controls Wm including intercept; X must be a
     // From R> factor, first level to be dropped
+
+    // JC: Wm doesn't have a constant, right? Is it supposed to? 3/14/22
     Xm   = Xm[., 2::k]
     WmXm = J(n, kw + (k - 1) * kw, 0)
     WmXm[|1, 1 \ n, kw|] = Wm
@@ -197,7 +202,19 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
             sum(rowsum(multe_helper_antiselect(psimax, j)):^2),
             sum(rowsum(multe_helper_antiselect(psimin, j)):^2)
         ))
+ 
     }
+
+    // Control-specific TEs and weights
+    delta_kl = rowshape(rowshape(rd.coefficients[1..(k-1),.], 1), (k-1)*(k-1))'
+    Pr_W = mean(Wm)'
+    lambda = Wm * (delta_kl :/ Pr_W)
+    
+    gammam = rowshape(gamma, k-1) // w x k matrix
+    tauhat = Wm * gammam'         // N x k matrix
+    
+    // Sanity Check: this should match decomposition:
+    // beta_hat = mean((tauhat, tauhat) :* lambda)
 
 // TODO: xx "beta", "own", "cont. bias", "maxbias", minbias"
 // TODO: xx rownames are labels or "se"
@@ -206,6 +223,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     results.decomposition.tmp = rowshape((est, se), 2 * rows(est))
     results.decomposition.Tvalues = xlevels
     results.decomposition.Tlabels = results.estimates.Tlabels
+    results.decomposition.tauhat = tauhat
+    results.decomposition.lambda = lambda
 
     results.decomposition.tmp
     return(results)
