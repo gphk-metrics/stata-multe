@@ -230,7 +230,6 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     results.decomposition.tauhat = tauhat
     results.decomposition.lambda = lambda
 
-    results.decomposition.tmp
     return(results)
 }
 

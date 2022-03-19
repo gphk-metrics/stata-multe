@@ -1,6 +1,6 @@
 cap program drop output
 program output
-	syntax, treatment(varname)                     /// control variable
+	syntax, treatment(varname)                  /// control variable
             MATAsave(str)                       /// input saved mata object
      [                                          ///
 		outpath(str)							/// output filepath/name
