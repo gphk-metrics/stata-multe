@@ -201,7 +201,7 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
             sum(rowsum(multe_helper_antiselect(psimax, j)):^2),
             sum(rowsum(multe_helper_antiselect(psimin, j)):^2)
         ))
- 
+
     }
 
     // Control-specific TEs and weights
@@ -213,12 +213,9 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     delta_kl = rowshape(rowshape(rd.coefficients[1..(k-1),.], 1), (k-1)*(k-1))'
     Pr_W     = mean(Wm)'
     lambda   = Wm * (delta_kl :/ Pr_W)
-    
+
     gammam = rowshape(gamma, k-1) // w x k matrix
     tauhat = Wm * gammam'         // N x k matrix
-    
-    // Sanity Check: this should match decomposition:
-    // beta_hat = mean((tauhat, tauhat) :* lambda)
 
 // TODO: xx "beta", "own", "cont. bias", "maxbias", minbias"
 // TODO: xx rownames are labels or "se"
