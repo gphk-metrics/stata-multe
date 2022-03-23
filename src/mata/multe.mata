@@ -190,16 +190,16 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
             sum(estk),
             estk[j],
             sum(multe_helper_antiselect(estk, j)),
-            sum(gamma[gi]' * multe_helper_antiselect(deltak[di] :* M, j)),
-            sum(gamma[gd]' * multe_helper_antiselect(deltak[di] :* M, j))
+            sum(gamma[gd]' * multe_helper_antiselect(deltak[di] :* M, j)),
+            sum(gamma[gi]' * multe_helper_antiselect(deltak[di] :* M, j))
         )
 
         se[j,.] = sqrt((
             sum(rowsum(psi):^2),
             sum(psi[., j]:^2),
             sum(rowsum(multe_helper_antiselect(psi, j)):^2),
-            sum(rowsum(multe_helper_antiselect(psimax, j)):^2),
-            sum(rowsum(multe_helper_antiselect(psimin, j)):^2)
+            sum(rowsum(multe_helper_antiselect(psimin, j)):^2),
+            sum(rowsum(multe_helper_antiselect(psimax, j)):^2)
         ))
  
     }
@@ -306,7 +306,7 @@ void function MulTE_Estimates::print(| real scalar digits)
 
 void function MulTE_Decomposition::new()
 {
-    colnames = ("beta", "own", "cont bias", "maxbias", "minbias")'
+    colnames = ("beta", "own", "cont bias", "minbias", "maxbias")'
 }
 
 void function MulTE_Decomposition::save(string scalar outmatrix)
