@@ -3,14 +3,14 @@ MulTE
 
 Multiple Treatment Effects regression
 
-`version 0.1.4 21Mar2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
+`version 0.1.5 23Mar2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
 
 ### Installation
 
 From the command line:
 
 ```
-git clone git@github.com:mcaceresb/stata-multe
+git clone git@github.com:gphk-metrics/stata-multe
 ```
 
 (or download the code manually and unzip). From Stata:
@@ -26,7 +26,7 @@ could be installed directly from Stata:
 
 ```
 local github "https://raw.githubusercontent.com"
-net install manyiv, from(`github'/mcaceresb/stata-multe/main/)
+net install manyiv, from(`github'/gphk-metrics/stata-multe/main/)
 ```
 
 ### Usage
@@ -49,4 +49,7 @@ gen W = mod(_n, 10)
 gen Y = T + runiform()
 multe Y T, control(W)
 return list
+multe Y T, control(W) gen(lambda tau)
+multe Y T, control(W) gen(lambda(awesomeName) tau(coolerName))
+desc, full
 ```

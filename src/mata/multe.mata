@@ -36,6 +36,8 @@ class MulTE_Decomposition
     real matrix tauhat
     real matrix lambda
     real   vector Tvalues
+    string vector tauhat_names
+    string vector lambda_names
     string vector Tlabels
     string vector colnames
 
@@ -49,9 +51,10 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     struct MulTE_Results scalar results
     struct multe_helper_results scalar rk, ri, rd, rddX
 
+    string vector lambda_names, tauhat_names
     string scalar Tlab
 
-    real scalar j, n, k, kw, j1, j2
+    real scalar i, l, j, n, k, kw, j1, j2
     real vector Y, X
     real vector xlevels, X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean, Pr_W, beta_hat
     real matrix Xm, psi_alpha0, ps, Xt, WmXm
@@ -146,7 +149,9 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     // From R> matrix of controls Wm including intercept; X must be a
     // From R> factor, first level to be dropped
 
-    // JC: Wm doesn't have a constant, right? Is it supposed to? 3/14/22
+    // NB> Wm does not have a constant because it contains the full
+    // NB> matrix of dummies.
+
     Xm   = Xm[., 2::k]
     WmXm = J(n, kw + (k - 1) * kw, 0)
     WmXm[|1, 1 \ n, kw|] = Wm
@@ -206,10 +211,21 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
 
     // Control-specific TEs and weights
     //     - rd has coefficients of reg of X * W on X, W
-    //     - 1..(k-1) rows are coefs of X[., 1..(k-1)]
+    //     - 1..(k-1) rows are coefs of X[., 2..k]
     //     - reshape so lth set of 1..(k-1) columns has coefs
-    //       for X[., l] corresponding to X[., 1..(k-1)] * W
-    //       (i.e. X[., l] for X[., 1] * W, ..., X[., k-1] * W)
+    //       for X[., l+1] corresponding to X[., 2..k] * W
+    //       (i.e. X[., l+1] for X[., 2] * W, ..., X[., k] * W)
+
+    i = 0
+    tauhat_names = J(1, k-1, "")
+    lambda_names = J(1, (k-1)*(k-1), "")
+    for (l = 1; l < k; l++) {
+        tauhat_names[l] = sprintf("%g", l + 1)
+        for (j = 1; j < k; j++) {
+            lambda_names[++i] = sprintf("%g%g", l + 1, j + 1)
+        }
+    }
+
     delta_kl = rowshape(rowshape(rd.coefficients[1..(k-1),.], 1), (k-1)*(k-1))'
     Pr_W     = mean(Wm)'
     lambda   = Wm * (delta_kl :/ Pr_W)
@@ -219,6 +235,7 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
 
 // TODO: xx "beta", "own", "cont. bias", "maxbias", minbias"
 // TODO: xx rownames are labels or "se"
+// TODO: xx tauhat and lambda needn't be saved _always_
     results.decomposition.est = est
     results.decomposition.se  = se
     results.decomposition.tmp = rowshape((est, se), 2 * rows(est))
@@ -226,6 +243,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     results.decomposition.Tlabels = results.estimates.Tlabels
     results.decomposition.tauhat = tauhat
     results.decomposition.lambda = lambda
+    results.decomposition.tauhat_names = tauhat_names
+    results.decomposition.lambda_names = lambda_names
 
     return(results)
 }
