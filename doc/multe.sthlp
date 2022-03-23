@@ -16,7 +16,7 @@
 {title:Syntax}
 
 {pstd}
-Run multiple IV regressions:
+Multiple treatment effects regression.
 
 {p 8 15 2}
 {cmd:multe}
