@@ -3,7 +3,7 @@ MulTE
 
 Multiple Treatment Effects regression
 
-`version 0.1.3 02Mar2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
+`version 0.1.4 21Mar2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
 
 ### Installation
 
@@ -39,11 +39,13 @@ help multe
 ### Examples
 
 ```stata
+local nobs   1000
+local ktreat 5
 clear
 set seed 1729
-set obs 1000
-gen T = (runiform() > 0.5) + 1
-gen W = mod(_n, 10) + 1
+set obs `nobs'
+gen T = ceil(runiform() * `ktreat')
+gen W = mod(_n, 10)
 gen Y = T + runiform()
 multe Y T, control(W)
 return list

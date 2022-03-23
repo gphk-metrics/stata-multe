@@ -1,4 +1,4 @@
-*! version 0.1.3 02Mar2022
+*! version 0.1.4 21Mar2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com>
@@ -27,8 +27,13 @@ program multe, rclass
     if "`matasave'" == "" tempname results
     else local results: copy local matasave
 
-    mata Wm = designmatrix(st_data(., "`control'", "`touse'"))
-    mata `results' = MulTE("`depvar'", "`treatment'", Wm, "`touse'")
+    * Force treatment, control into indices
+    tempvar T W
+    egen `T' = group(`treatment'), label
+    egen `W' = group(`control')
+
+    mata Wm = designmatrix(st_data(., "`W'", "`touse'"))
+    mata `results' = MulTE("`depvar'", "`T'", Wm, "`touse'")
 
     tempname estmatrix decompmatrix
     mata `results'.estimates.print()
