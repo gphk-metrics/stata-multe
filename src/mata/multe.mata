@@ -220,9 +220,9 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     tauhat_names = J(1, k-1, "")
     lambda_names = J(1, (k-1)*(k-1), "")
     for (l = 1; l < k; l++) {
-        tauhat_names[l] = sprintf("%g", l + 1)
+        tauhat_names[l] = sprintf("%g", l)
         for (j = 1; j < k; j++) {
-            lambda_names[++i] = sprintf("%g%g", l + 1, j + 1)
+            lambda_names[++i] = sprintf("%g%g", l, j)
         }
     }
 
