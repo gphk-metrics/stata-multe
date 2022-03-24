@@ -48,7 +48,8 @@ gen T = ceil(runiform() * `ktreat')
 gen W = mod(_n, 10)
 gen Y = T + runiform()
 multe Y T, control(W)
-return list
+ereturn list
+multe, vce(oracle)
 multe Y T, control(W) gen(lambda tau)
 multe Y T, control(W) gen(lambda(awesomeName) tau(coolerName))
 desc, full
