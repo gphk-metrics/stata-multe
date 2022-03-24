@@ -1,18 +1,26 @@
 global star "~/Dropbox/GPH_ExaminerDesign/Applications/STAR"
 global data	"${star}/Data"
+// global star "/Users/jchang42/Dropbox (Brown)/GPH_ExaminerDesign/Applications/STAR"
+// global data "${star}/Data"
 
 capture program drop main
 program main
 
-    * do ../src/ado/multe.ado
-    * do ../src/mata/multe.mata
-    loat_test_data
-    multe score treatment, control(school)
+    mata mata clear
+    qui do src/ado/multe.ado
+    qui do src/mata/multe_helpers.mata
+    qui do src/mata/multe.mata
+	qui do test/output.ado
+	qui do test/export_latex.mata
+    load_test_data
+    multe score treatment, control(school) matasave(results)
+	// output, treatment(treatment) matasave(results) ///
+        // outpath("${star}/Output/tables/test") // pick your outpath
     mata mata desc
 end
 
-capture program drop loat_test_data
-program loat_test_data
+capture program drop load_test_data
+program load_test_data
     use `"${data}/STARgk_Lambdas.dta"', clear
 
     gen treatment = "regular"
@@ -25,6 +33,7 @@ program loat_test_data
     replace treatment = 2 if treatmentlab == "small"
     replace treatment = 3 if treatmentlab == "aide"
     label define treatmentlab 1 "regular" 2 "small" 3 "aide"
+    label values treatment treatmentlab
     factor school    = schoollab,  replace
     factor teacher   = teacherlab, replace
 end

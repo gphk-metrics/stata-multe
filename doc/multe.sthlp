@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.1.0 16Feb2022}{...}
+{* *! version 0.1.5 23Mar2022}{...}
 {viewerdialog multe "dialog multe"}{...}
 {vieweralsosee "[R] multe" "mansection R multe"}{...}
 {viewerjumpto "Syntax" "multe##syntax"}{...}
@@ -16,7 +16,7 @@
 {title:Syntax}
 
 {pstd}
-Run multiple IV regressions:
+Multiple treatment effects regression.
 
 {p 8 15 2}
 {cmd:multe}
@@ -30,7 +30,17 @@ Run multiple IV regressions:
 {marker table_options}{...}
 {synopthdr}
 {synoptline}
-{synopt :{opth xx(str)}} Option xx.
+{syntab :Options}
+{synopt :{opth mata:save(str)}} Save mata object with results.
+{p_end}
+{synopt :{opt gen:erate(options)}} Optionally save tau, lambda. See {it:{help multe##gen_options:generate options}}.
+{p_end}
+
+{marker gen_options}{...}
+{syntab :Generate Options}
+{synopt :{cmd:lambda}[{cmd:(}str{cmd:)}]} Save lambdas in dataset; optinally specity prefix (default {cmd:lambda}).
+{p_end}
+{synopt :{cmd:tau}[{cmd:(}str{cmd:)}]} Save taus in dataset; optinally specity prefix (default {cmd:tau}).
 {p_end}
 
 {p2colreset}{...}
@@ -45,10 +55,16 @@ Alpha package for multiple treatment effects regression.
 {marker example}{...}
 {title:Examples}
 
-{phang2}{cmd:. clear                   }{p_end}
-{phang2}{cmd:. set seed 1729           }{p_end}
-{phang2}{cmd:. set obs 1000            }{p_end}
-{phang2}{cmd:. gen T = runiform() > 0.5}{p_end}
-{phang2}{cmd:. gen W = mod(_n, 10)     }{p_end}
-{phang2}{cmd:. gen Y = T + runiform()  }{p_end}
-{phang2}{cmd:. multe Y T, control(W)   }{p_end}
+{phang2}{cmd:. local nobs   1000                                             }{p_end}
+{phang2}{cmd:. local ktreat 5                                                }{p_end}
+{phang2}{cmd:. clear                                                         }{p_end}
+{phang2}{cmd:. set seed 1729                                                 }{p_end}
+{phang2}{cmd:. set obs `nobs'                                                }{p_end}
+{phang2}{cmd:. gen T = ceil(runiform() * `ktreat')                           }{p_end}
+{phang2}{cmd:. gen W = mod(_n, 10)                                           }{p_end}
+{phang2}{cmd:. gen Y = T + runiform()                                        }{p_end}
+{phang2}{cmd:. multe Y T, control(W)                                         }{p_end}
+{phang2}{cmd:. return list                                                   }{p_end}
+{phang2}{cmd:. multe Y T, control(W) gen(lambda tau)                         }{p_end}
+{phang2}{cmd:. multe Y T, control(W) gen(lambda(awesomeName) tau(coolerName))}{p_end}
+{phang2}{cmd:. desc, full                                                    }{p_end}

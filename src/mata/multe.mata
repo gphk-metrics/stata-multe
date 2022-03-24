@@ -1,103 +1,342 @@
-cap mata mata drop multe_helper_ols()
-cap mata mata drop multe_helper_olsw()
+cap mata mata drop MulTE()
+cap mata mata drop MulTE_Estimates()
+cap mata mata drop MulTE_Decomposition()
+cap mata mata drop MulTE_Results()
 
 mata
-void function MulTE(real colvector Y, real colvector X, real matrix Wm)
-{
-    real scalar n
-    real vector xlevels, X0, alpha0, lam, alphac, resc, ts, s0
-    real matrix Xm, psi_alpha0, ps, Xt
-    real matrix est, se_or, se_po
+// Yvar  = "`depvar'"
+// Tvar  = "`treatment'"
+// touse = "`touse'"
 
+struct MulTE_Results
+{
+    class MulTE_Estimates scalar estimates
+    class MulTE_Decomposition scalar decomposition
+}
+
+class MulTE_Estimates
+{
+    real matrix est
+    real matrix se_po
+    real matrix se_or
+    real   vector Tvalues
+    string vector Tlabels
+    string vector colnames
+
+    void new()
+    void print()
+    void save()
+}
+
+class MulTE_Decomposition
+{
+    real matrix tmp
+    real matrix est
+    real matrix se
+    real matrix tauhat
+    real matrix lambda
+    real   vector Tvalues
+    string vector tauhat_names
+    string vector lambda_names
+    string vector Tlabels
+    string vector colnames
+
+    void new()
+    void print()
+    void save()
+}
+
+struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real matrix Wm, string scalar touse)
+{
+    struct MulTE_Results scalar results
+    struct multe_helper_results scalar rk, ri, rd, rddX
+
+    string vector lambda_names, tauhat_names
+    string scalar Tlab
+
+    real scalar i, l, j, n, k, kw, j1, j2
+    real vector Y, X
+    real vector xlevels, X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean, Pr_W, beta_hat
+    real matrix Xm, psi_alpha0, ps, Xt, WmXm
+    real matrix gamma, psi_gamma, deltak, psi_deltak, ddX, M, psi
+    real matrix est, estk, se_or, se_po, se, psimin, psimax
+    real matrix alphak, psi_alphak, psi_or, psi_po
+    real matrix delta_kl, lambda, gammam, tauhat
+    real vector s, Xdot, eps, sk, ghelper, gi, gd, di
+
+    // -----------------------------------------------------------------
+    // Setup
+    // -----------------------------------------------------------------
+
+    Y       = st_data(., Yvar, touse)
+    X       = st_data(., Tvar, touse)
     n       = rows(Y)
     xlevels = uniqrows(X)
+    k       = length(xlevels)
+    kw      = cols(Wm)
     X0      = (X :== xlevels[1])
     Xm      = designmatrix(X)
     alpha0  = multe_helper_ols(select(Y, X0), select(Wm, X0))
 
     psi_alpha0  = (X0 :* Wm :* (Y - Wm * alpha0)) * qrinv(cross(X0 :* Wm, Wm)/n)
-    est = se_or = se_po = J(length(xlevels) - 1, 3, .)
+    est = se_or = se_po = J(k - 1, 3, .)
+// TODO: xx why isn't this 2 by k instead of k-2 by 3? think abt it
 
     // common weights
     ps        = Wm * multe_helper_ols(Xm, Wm) // propensity scores
     Xt        = Xm - ps                       // residuals
     lam       = 1 :/ rowsum(1:/ps)
-    alphac    = multe_helper_olsw(Y, Xm, lam :/ rowsum(ps :* Xm))
-    resc      = Y - Xm * alphac
-    est[., 3] = alphac[2::length(alphac)] :- alphac[1]
+    rcalpha   = multe_helper_olsw(Y, Xm, lam :/ rowsum(ps :* Xm))
+    rcres     = Y - Xm * rcalpha
+    est[., 3] = rcalpha[2::length(rcalpha)] :- rcalpha[1]
 
     // Fitted t values
-    ts = Wm * multe_helper_ols(resc :* Xm :/ (ps:^2)  :* lam, Wm)
-    s0 = Wm * multe_helper_ols(resc :* X0 :/ ps[., 1] :* (lam:^2) :/ (ps:^2), Wm)
+    ts = Wm * multe_helper_ols(rcres :* Xm :/ (ps:^2)  :* lam, Wm)
+    s0 = Wm * multe_helper_ols(rcres :* X0 :/ ps[., 1] :* (lam:^2) :/ (ps:^2), Wm)
 
-    // loop (you are here)
+// TODO: xx figure out if selectindex(s) is faster
+// TODO: xx or maybe make subset vars at start of loop
+
+    // -----------------------------------------------------------------
+    // TE estimates
+    // -----------------------------------------------------------------
+
+    Wmean = mean(Wm)
+    for(j = 2; j <= k; j++) {
+        alphak  = multe_helper_ols(select(Y, Xm[., j]), select(Wm, Xm[., j]))
+        psi_alphak = (Xm[.,j] :* (Y - Wm * alphak) :* Wm) * qrinv(cross(Xm[., j] :* Wm, Wm) / n)
+
+        // ATE
+        est[j - 1, 1] = (Wmean * (alphak - alpha0))
+        psi_or = ((psi_alphak - psi_alpha0) * Wmean')
+        se_or[j - 1, 1] = sqrt(variance(psi_or) * (n - 1) / n^2)
+        se_po[j - 1, 1] = sqrt(variance(psi_or + ((Wm :-  Wmean) * (alphak - alpha0))) * (n - 1) / n^2)
+
+        // One treatment at a time
+        s               = (X0 :| Xm[., j])
+        Xdot            = select(Xm[., j], s) - select(Wm, s) * multe_helper_ols(select(Xm[., j], s), select(Wm, s))
+        rk              = multe_helper_olsr(select(Y, s), (Xdot, select(Wm, s)))
+        est[j - 1, 2]   = rk.coefficients[1]
+        se_po[j - 1, 2] = sqrt(sum((rk.residuals:^2) :* (Xdot:^2)) / sum(Xdot:^2):^2)
+
+        eps = select(Xm[., j], s) :* (select(Y, s) - select(Wm, s) * alphak) +
+              select(X0, s) :* (select(Y, s) - select(Wm, s) * alpha0)
+        se_or[j - 1, 2] = sqrt(sum((eps:^2) :* (Xdot:^2))/sum(Xdot:^2)^2)
+
+        // common weights
+        psi_or = lam :* (Xm[., j] :* (Y - Wm * alphak) :/ ps[., j] -
+                 X0 :* (Y - Wm * alpha0) :/ ps[., 1]) :/ mean(lam)
+        sk = Wm * multe_helper_ols(rcres :* Xm[., j] :/ ps[., j] :* (lam:^2) :/ (ps:^2), Wm)
+        psi_po = (lam :* rcres :* (Xm[., j] :/ ps[., j] - X0 :/ ps[., 1]) +
+                  Xt[., 1] :* ts[., 1] - Xt[., j] :* ts[., j] + rowsum(Xt :* (sk - s0))) / mean(lam)
+        se_po[j-1, 3] = sqrt(variance(psi_po)*(n-1)/n^2)
+        se_or[j-1, 3] = sqrt(variance(psi_or)*(n-1)/n^2)
+    }
+
+    Tlab = st_varvaluelabel(Tvar)
+    results.estimates.est   = est
+    results.estimates.se_po = se_po
+    results.estimates.se_or = se_or
+    results.estimates.Tvalues = xlevels
+    results.estimates.Tlabels = Tlab == ""? strofreal(xlevels): st_vlmap(Tlab, xlevels)
+
+// TODO: xx decide whether to make decomposition a separate function
+
+    // -----------------------------------------------------------------
+    // Decomposition (not run)
+    // -----------------------------------------------------------------
+
+    // From R> matrix of controls Wm including intercept; X must be a
+    // From R> factor, first level to be dropped
+
+    // NB> Wm does not have a constant because it contains the full
+    // NB> matrix of dummies.
+
+    Xm   = Xm[., 2::k]
+    WmXm = J(n, kw + (k - 1) * kw, 0)
+    WmXm[|1, 1 \ n, kw|] = Wm
+    for(j = 1; j < k; j++) {
+        j1 = kw + (j - 1) * kw + 1
+        j2 = kw + (j - 0) * kw
+        WmXm[|1, j1 \ n, j2|] = Xm[., j] :* Wm
+    }
+    ri = multe_helper_olsr(Y, WmXm) // interactions
+
+    gamma = ri.coefficients[|(kw+1) \ cols(WmXm)|]
+    psi_gamma = ((ri.residuals :* WmXm) *
+                  invsym(cross(WmXm, WmXm)))[|(1, kw+1) \ (n, cols(WmXm))|]
+    rd = multe_helper_olsr(WmXm[|(1, kw+1) \ (n, cols(WmXm))|], (Xm, Wm)) // delta
+
+    // Sort columns by size
+    ghelper = rowshape(colshape(J(kw, 1, 1::(k-1)), k-1)', kw * (k - 1))
+    gi  = order((ghelper, gamma), (1, 2))
+    gd  = order((ghelper, gamma), (1, -2))
+    est = se = J(k-1, 5, .)
+
+    // Standard errors
+    for (j = 1; j < k; j++) {
+        rddX = multe_helper_olsr(Xm[., j], (multe_helper_antiselect(Xm, j), Wm))
+        ddX  = rddX.residuals // ddot(X)
+
+        deltak     = rd.coefficients[j, .]'
+        psi_deltak = ddX :* rd.residuals / sum(ddX:^2)
+
+        M    = I(k - 1)#J(kw, 1, 1)
+        psi  = psi_deltak * (gamma :* M) + psi_gamma * (deltak :* M)
+        estk = gamma' * (deltak :* M)
+
+        // Sort delta columns
+        di = order((ghelper, deltak), (1, 2))
+
+        psimax = psi_deltak[., di] * (gamma[gi] :* M) + psi_gamma[., gi] * (deltak[di] :* M)
+        psimin = psi_deltak[., di] * (gamma[gd] :* M) + psi_gamma[., gd] * (deltak[di] :* M)
+
+        est[j,.] = (
+            sum(estk),
+            estk[j],
+            sum(multe_helper_antiselect(estk, j)),
+            sum(gamma[gd]' * multe_helper_antiselect(deltak[di] :* M, j)),
+            sum(gamma[gi]' * multe_helper_antiselect(deltak[di] :* M, j))
+        )
+
+        se[j,.] = sqrt((
+            sum(rowsum(psi):^2),
+            sum(psi[., j]:^2),
+            sum(rowsum(multe_helper_antiselect(psi, j)):^2),
+            sum(rowsum(multe_helper_antiselect(psimin, j)):^2),
+            sum(rowsum(multe_helper_antiselect(psimax, j)):^2)
+        ))
+
+    }
+
+    // Control-specific TEs and weights
+    //     - rd has coefficients of reg of X * W on X, W
+    //     - 1..(k-1) rows are coefs of X[., 2..k]
+    //     - reshape so lth set of 1..(k-1) columns has coefs
+    //       for X[., l+1] corresponding to X[., 2..k] * W
+    //       (i.e. X[., l+1] for X[., 2] * W, ..., X[., k] * W)
+
+    i = 0
+    tauhat_names = J(1, k-1, "")
+    lambda_names = J(1, (k-1)*(k-1), "")
+    for (l = 1; l < k; l++) {
+        tauhat_names[l] = sprintf("%g", l)
+        for (j = 1; j < k; j++) {
+            lambda_names[++i] = sprintf("%g%g", l, j)
+        }
+    }
+
+    delta_kl = rowshape(rowshape(rd.coefficients[1..(k-1),.], 1), (k-1)*(k-1))'
+    Pr_W     = mean(Wm)'
+    lambda   = Wm * (delta_kl :/ Pr_W)
+
+    gammam = rowshape(gamma, k-1) // w x k matrix
+    tauhat = Wm * gammam'         // N x k matrix
+
+// TODO: xx "beta", "own", "cont. bias", "maxbias", minbias"
+// TODO: xx rownames are labels or "se"
+// TODO: xx tauhat and lambda needn't be saved _always_
+    results.decomposition.est = est
+    results.decomposition.se  = se
+    results.decomposition.tmp = rowshape((est, se), 2 * rows(est))
+    results.decomposition.Tvalues = xlevels
+    results.decomposition.Tlabels = results.estimates.Tlabels
+    results.decomposition.tauhat = tauhat
+    results.decomposition.lambda = lambda
+    results.decomposition.tauhat_names = tauhat_names
+    results.decomposition.lambda_names = lambda_names
+
+    return(results)
 }
 
-real matrix function multe_helper_ols(real matrix Y, real matrix X)
+void function MulTE_Estimates::new()
 {
-    return(invsym(cross(X, X)) * cross(X, Y))
+    colnames = ("ATE", "1-at-a-time", "common weights")'
 }
 
-real matrix function multe_helper_olsw(real matrix Y, real matrix X, real matrix W)
+void function MulTE_Estimates::save(string scalar outmatrix)
 {
-    return(qrinv(cross(X :* W, X)) * cross(X :* W, Y))
+    string vector rownames
+    rownames = Tlabels[2::length(Tvalues)], J(rows(est), 1, "se"), J(rows(est), 1, "oracle_se")
+    rownames = rowshape(rownames, rows(est) * 3)
+
+    st_matrix(outmatrix, rowshape((est, se_po, se_or), rows(est) * 3))
+    st_matrixcolstripe(outmatrix, (J(cols(est), 1, ""), colnames))
+    st_matrixrowstripe(outmatrix, (J(3 * rows(est), 1, ""), rownames))
+}
+
+void function MulTE_Estimates::print(| real scalar digits)
+{
+    real scalar i, j
+    real vector lengths
+    string matrix fmt_res, fmt_est, fmt_se_po, fmt_se_or
+    string vector rownames, formats
+
+    rownames = Tlabels[2::length(Tvalues)], J(rows(est), 1, "se"), J(rows(est), 1, "oracle_se")
+    rownames = rowshape(rownames, rows(est) * 3)
+
+    if ( args() < 1 ) digits = 6
+
+    fmt_est   = J(rows(est), cols(est), "")
+    fmt_se_po = J(rows(est), cols(est), "")
+    fmt_se_or = J(rows(est), cols(est), "")
+
+    for (i = 1; i <= rows(est); i++) {
+        for (j = 1; j <= cols(est); j++) {
+            fmt_est[i, j]   = strtrim(sprintf("%21." + strofreal(digits) + "f", est[i, j]))
+            fmt_se_po[i, j] = "(" + strtrim(sprintf("%21." + strofreal(digits) + "f", se_po[i, j])) + ")"
+            fmt_se_or[i, j] = "(" + strtrim(sprintf("%21." + strofreal(digits) + "f", se_or[i, j])) + ")"
+        }
+    }
+
+    fmt_res = rowshape((fmt_est, fmt_se_po, fmt_se_or), rows(est) * 3)
+    lengths = max(strlen(rownames)), colmax(strlen(colnames' \ fmt_res))
+    formats = " %" :+ strofreal(lengths) :+ "s "
+
+    printf("|")
+    printf(formats[1], "")
+    for (j = 1; j <= length(colnames); j++) {
+        printf("|")
+        printf(formats[j + 1], colnames[j])
+    }
+    printf("|\n")
+
+    printf("|")
+    for (j = 1; j <= length(lengths); j++) {
+        printf(formats[j], "-" * lengths[j])
+        printf("|")
+    }
+    printf("\n")
+
+    for (i = 1; i <= rows(fmt_res); i++) {
+        printf("|")
+        printf(formats[1], rownames[i])
+        for (j = 1; j <= cols(fmt_res); j++) {
+            printf("|")
+            printf(formats[j + 1], fmt_res[i, j])
+        }
+        printf("|\n")
+    }
+}
+
+
+void function MulTE_Decomposition::new()
+{
+    colnames = ("beta", "own", "cont bias", "minbias", "maxbias")'
+}
+
+void function MulTE_Decomposition::save(string scalar outmatrix)
+{
+    string vector rownames
+    rownames = Tlabels[2::length(Tvalues)], J(rows(est), 1, "se")
+    rownames = rowshape(rownames, rows(est) * 2)
+
+    st_matrix(outmatrix, rowshape((est, se), rows(est) * 2))
+    st_matrixcolstripe(outmatrix, (J(cols(est), 1, ""), colnames))
+    st_matrixrowstripe(outmatrix, (J(2 * rows(est), 1, ""), rownames))
+}
+
+void function MulTE_Decomposition::print(| real scalar digits)
+{
 }
 end
-
-// te_estimates <- function(Y, X, Wm) {
-//     n <- length(Y)
-//     X0 <- X==levels(X)[1]
-//     Xm <- outer(X, levels(X)[-1], `==`)+0    ## X matrix
-//     alpha0 <- lm(Y~0+Wm, subset=X0)$coefficients
-//     psi_alpha0 <- (X0*Wm*(Y-drop(Wm %*% alpha0))) %*%
-//         solve(crossprod(X0*Wm, Wm)/n)
-//     est <- se_or <- se_po <- matrix(ncol=3, nrow=(length(levels(X))-1))
-//
-//     ## common weights
-//     ps <- predict(lm(cbind(X0, Xm)~Wm)) # propensity scores
-//     Xt <- cbind(X0, Xm)-ps              # residuals
-//     lam <- 1/rowSums(1/ps)
-//     rc <- lm(Y~0+X, weights=lam/rowSums(ps*cbind(X0, Xm)))
-//     alphac <- rc$coefficients
-//     est[, 3] <- alphac[-1]-alphac[1]
-//     ## Fitted t values
-//     ts <- predict(lm(rc$residuals * cbind(X0, Xm) / ps^2 * lam ~ 0+Wm))
-//     s0 <- predict(lm(rc$residuals*X0/ps[, 1]*lam^2/ps^2 ~ 0+Wm))
-//
-//     for (k in seq_along(levels(X)[-1])) {
-//         alphak <- lm(Y~0+Wm, subset=(X==levels(X)[k+1]))$coefficients
-//         psi_alphak <- (Xm[, k]*(Y-drop(Wm %*% alphak))*Wm) %*%
-//             solve(crossprod(Xm[, k]*Wm, Wm)/n)
-//         ## ATE
-//         est[k, 1] <- drop(colMeans(Wm) %*% (alphak-alpha0))
-//         psi_or <- drop((psi_alphak-psi_alpha0) %*% colMeans(Wm))
-//         se_or[k, 1] <- sqrt(var(psi_or)*(n-1)/n^2)
-//         se_po[k, 1] <- sqrt(var(psi_or+drop(scale(Wm, scale = FALSE) %*%
-//                                             (alphak-alpha0)))*(n-1)/n^2)
-//         ## 1 at a time
-//         s <- (X0 | X==levels(X)[k+1])
-//         Xdot <- lm(Xm[, k]~Wm, subset=s)$residuals
-//         rk <- lm(Y[s]~0+Xdot+Wm[s, ])
-//         est[k, 2] <- rk$coefficients[1]
-//         se_po[k, 2] <- sqrt(sum(rk$residuals^2*Xdot^2)/sum(Xdot^2)^2)
-//         eps <- Xm[s, k]*(Y[s]-Wm[s, ] %*% alphak) +
-//             X0[s]*(Y[s]-Wm[s, ] %*% alpha0)
-//         se_or[k, 2] <- sqrt(sum(eps^2*Xdot^2)/sum(Xdot^2)^2)
-//         ## common weights
-//         psi_or <- lam*(Xm[, k]*(Y-Wm %*% alphak)/ps[, k+1]-
-//                        X0*(Y-Wm %*% alpha0)/ps[, 1])/mean(lam)
-//         sk <- predict(lm(rc$residuals*Xm[, k]/ps[, k+1]*lam^2/ps^2 ~ 0+Wm))
-//         psi_po <- (lam*rc$residuals*(Xm[, k]/ps[, k+1]-X0/ps[, 1]) +
-//             Xt[, 1]*ts[, 1]-Xt[, k+1]*ts[, k+1]+rowSums(Xt * (sk-s0)))/mean(lam)
-//         se_po[k, 3] <- sqrt(var(psi_po)*(n-1)/n^2)
-//         se_or[k, 3] <- sqrt(var(drop(psi_or))*(n-1)/n^2)
-//
-//     }
-//     rownames(est) <- levels(X)[-1]
-//     rownames(se_po) <- rep("se", nrow(est))
-//     rownames(se_or) <- rep("oracle_se", nrow(est))
-//     ret <- rbind(est, se_po, se_or)
-//     colnames(ret) <- c("ATE", "1-at-a-time", "common weights")
-//     rbind(ret[seq_len(nrow(ret)) %% 2 == 1, ],
-//           ret[seq_len(nrow(ret)) %% 2 == 0, ])
-// }
