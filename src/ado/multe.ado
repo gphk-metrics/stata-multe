@@ -41,9 +41,33 @@ program multe, eclass
     if "`matasave'" == "" local results MulTEResults
     else local results: copy local matasave
 
-    * Force control into indices
-    tempvar W
-    egen `W' = group(`control')
+    * Check each control strata has all treatment levels
+* TODO: xx this is very inefficient; optimize
+    qui levelsof `treatment' if `touse', loc(Tlevels)
+    local Tk: list sizeof Tlevels
+
+    tempvar W Wtag Ttag Tuniq Tdrop
+    egen long  `W'      = group(`control')
+    egen byte  `Wtag'   = tag(`W') if `touse'
+    egen byte  `Ttag'   = tag(`W' `treatment') if `touse'
+    egen double `Tuniq' = sum(`Ttag') if `touse', by(`W')
+    gen byte `Tdrop'    = (`Tuniq' < `Tk') if `touse'
+    cap assert `Tuniq' <= `Tk' if `touse'
+    if ( _rc ) {
+        disp as err "found more levels within a control strata than levels overall"
+        exit 9
+    }
+
+    qui count if (`Wtag' == 1) & (`Tdrop' == 1) & `touse'
+    local nstrata = `r(N)'
+    qui count if (`Tdrop' == 1) & `touse'
+    local nobs = `r(N)'
+    qui replace `touse' = 0 if (`Tdrop' == 1)
+    if ( `nobs' | `nstrata' ) {
+        disp as txt "`nstrata' control strata without sufficient overlap dropped (`nobs' obs)"
+        * exit 498
+    }
+
     mata Wm = designmatrix(st_data(., "`W'", "`touse'"))
     mata `results' = MulTE("`depvar'", "`treatment'", Wm, "`touse'")
 
