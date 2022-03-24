@@ -20,11 +20,12 @@ args = vars(parser.parse_args())
 # ---------------------------------------------------------------------
 # Config
 
+config_token   = "CrossPlatformCompatibilityCookie"
 config_version = "0.2.0"
 config_date = date(2022, 3, 24)
 config_files = [
     ('.bumpver.py', 'config_version = "{major}.{minor}.{patch}"'),
-    ('.bumpver.py', 'config_date = date({date:%Y, %-m, %-d})'),
+    ('.bumpver.py', f'config_date = date({{date:%Y, {config_token}%m, {config_token}%d}})'),
     ('README.md', 'version {major}.{minor}.{patch} {date:%d%b%Y}'),
     ('multe.pkg', 'v {major}.{minor}.{patch}'),
     ('multe.pkg', 'd Distribution-Date: {date:%Y%m%d}'),
@@ -49,13 +50,23 @@ def main(bump, dry = False):
 
 
 def bump_file(file, string, current, update, dry = False):
-    find = string.format(**current)
+    find = (
+        string
+        .format(**current)
+        .replace(config_token + "0", "")
+        .replace(config_token, "")
+    )
     with open(file, 'r') as fh:
         lines = fh.readlines()
         if find not in ''.join(lines):
             print(f'WARNING: nothing to bump in {file}')
 
-        replace = string.format(**update)
+        replace = (
+            string
+            .format(**update)
+            .replace(config_token + "0", "")
+            .replace(config_token, "")
+        )
         ulines = []
         for line in lines:
             if find in line:
