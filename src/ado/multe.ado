@@ -1,4 +1,4 @@
-*! version 0.2.0 24Mar2022
+*! version 0.2.1 31Mar2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com>
@@ -15,7 +15,7 @@ program multe, eclass
     local 0bak: copy local 0
     syntax varlist(numeric fv ts min=2 max=2)  /// depvar treatment
            [if] [in] ,                         /// subset
-        control(varname)                       /// control variable
+        control(varlist)                       /// control variable
     [                                          ///
         vce(str)                               /// SEs to be displayed
         GENerate(str)                          /// save lambdas/taus

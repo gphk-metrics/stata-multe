@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.2.0 24Mar2022}{...}
+{* *! version 0.2.1 31Mar2022}{...}
 {viewerdialog multe "dialog multe"}{...}
 {vieweralsosee "[R] multe" "mansection R multe"}{...}
 {viewerjumpto "Syntax" "multe##syntax"}{...}
@@ -25,8 +25,9 @@ Given a multi-valued treatment, a saturated group variable (or a {varlist} which
 {depvar}
 {it:treatment}
 {ifin}
+[{cmd:,}
 {opth control(varlist)}
-[{cmd:,} {it:{help multe##table_options:options}}]
+{it:{help multe##table_options:options}}]
 
 {synoptset 18 tabbed}{...}
 {marker table_options}{...}
@@ -57,14 +58,13 @@ Given a multi-valued treatment, a saturated group variable (or a {varlist} which
 {cmd:multe} computes equal-weighted estimates (ATE), variance-weighted estimates (as in Angrist 1998 ECMA), and efficiently-weighted estimates (as in Goldsmith-Pinkham, Hull, and Koles{c a'}r (2022)). 
 
 {pstd}
-It also computes and saves a decomposition of the ATEs into own-treatment effect and contamination bias estimates, and calculates the worst-case positive and negative contamination bias for each treatment effect.
+It also computes and saves a decomposition of the ATEs into own-treatment effect and contamination bias estimates, and calculates the worst-case positive and negative contamination bias for each treatment effect. Results are saved in {cmd:e()} (see {it:{help multe##results:stored stores}} below for details).
 
 {pstd}
 Heteroskedasticity-robust standard errors (default) and standard errors that assume treatment propensity scores are known (oracle) are also reported. 
 
 {pstd}
-The {depvar} can be xx (TODO: unit test on outcome variable). The {it:treatment} can be an arbitrary multi-valued variable. The {cmd:control} variables can be numeric or string, continuous or categorical; 
-but note that {cmd:multe} will turn the vector of controls into a single, saturated group variable. Groups which do not satisfy overlap (i.e. there exists a treatment level for which there are no observations) will be dropped.
+The {depvar} and {it:treatment} can be any numeric variables. However, each unique value of the {it:treatment} variable is taken as a distinct level of the treatment. The {cmd:control} variables can be numeric or string, but should define a series of categories ({cmd:multe} will turn the controls into a single, saturated group variable). Groups which do not satisfy overlap (i.e. there exists a treatment level for which there are no observations in that group) will be dropped (note, for example, a continuous control would normally define one category per obsefvation and thus drop all observations by this criterion).
 
 {pstd}
 Alpha package for multiple treatment effects regression. For a detailed theoretical discussion of calculations done by {cmd:multe}, see Goldsmith-Pinkham, Hull, and Koles{c a'}r (2022).
@@ -76,10 +76,10 @@ Alpha package for multiple treatment effects regression. For a detailed theoreti
 
 {phang}{opth vce(str)} specifies the type of standard errors to print. The default "" is heteroskedasticity-robust, and "oracle" specifies standard errors that assume that the propensity score for each treatment level is known.
 
-{phang}{opth mata:save(str)} supplies an alternative name for the mata struct which stores all estimates and variables in mata (default is "results").
+{phang}{opth mata:save(str)} supplies an alternative name for the mata structure which stores all estimates and variables in mata (default name is "MulTEResults"). Note this is in addition to results stored in {cmd:e()}; see {it:{help multe##results:stored stores}} below for details.
 
 {phang}{opt gen:erate(options)} specifies whether to save the implicit ATE regression weights (lambda) and/or the saturated group-specific treatment effects (tau) as variables. 
-The user can also specify the names of these two sets of variables via the generate options {cmd:lambda(str)} and {cmd:tau(str)}.
+The user can optionally specify the names of these two sets of variables via the options {cmd:lambda}[{cmd:(}str{cmd:)}] and {cmd:tau}[{cmd:(}str{cmd:)}]. For example, {cmd:gen(lambda tau)} would generate both with default names, while {cmd:gen(lambda(lname) tau(tname))} would generate them with custom names.
 
 {dlgtab:Generate Options}
 
