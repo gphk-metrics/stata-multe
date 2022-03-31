@@ -2,6 +2,7 @@ capture program drop multe_unit_tests
 program  multe_unit_tests
     syntax, [Verbose]
     multe_load_test_data
+    multe_unit_test_Ytype, `verbose'
     multe_unit_test_Ttype, `verbose'
     multe_unit_test_Wtype, `verbose'
 end
@@ -25,7 +26,50 @@ program multe_load_test_data
     gen double Wdouble = (Wbyte - 2.5) * `c(pi)' / 123456
     gen str4   Wstr    = "str" + string(Wbyte)
 
-    gen Y = Tbyte - Wbyte + runiform()
+    gen byte    Ybyte   = Tbyte - Wbyte + runiform()
+    gen int     Yint    = Tbyte - Wbyte + runiform()
+    gen long    Ylong   = Tbyte - Wbyte + runiform()
+    gen float   Yfloat  = Tbyte - Wbyte + runiform()
+    gen double  Ydouble = Tbyte - Wbyte + runiform()
+    gen str4    Ystr    = "str" + string(Tbyte - Wbyte + runiform())
+end
+
+capture program drop multe_unit_test_Ytype
+program multe_unit_test_Ytype
+    syntax, [Reload Verbose *]
+
+    if "`reload'" != "" multe_load_test_data, `options'
+    if ( "`verbose'" != "" ) {
+        foreach Y in Ybyte Yint Ylong Yfloat Ydouble Ystr {
+            tab `Y'
+        }
+    }
+
+    tempname Yexpected Yresult
+    local Ypass Ybyte Yint Ylong Yfloat Ydouble
+    local Yfail Ystr
+    foreach Y in `Ypass' `Yfail' {
+        cap multe `Y' Tbyte, control(Wbyte)
+        local rc1 = _rc
+        if ( `:list Y in Ypass' ) {
+            if ( `rc1' != 0 ) {
+                disp "(multe test fail): depvar type `:subinstr local Y "Y" ""' failed with _rc = `rc1'"
+                exit 9
+            }
+            else {
+                disp "(multe test success): depvar type `:subinstr local Y "Y" ""' gave no errors"
+            }
+        }
+        if ( `:list Y in Yfail' ) {
+            if ( `rc1' != 109 ) {
+                disp "(multe test fail): depvar type `:subinstr local Y "Y" ""' did not fail with _rc =  109 as expected (_rc = `rc1')"
+                exit 9
+            }
+            else {
+                disp "(multe test success): depvar type `:subinstr local Y "Y" ""' failed with _rc = 109 as expected"
+            }
+        }
+    }
 end
 
 * Double-check: Allow multe to take any multi-valued treatment T and
@@ -45,7 +89,7 @@ program multe_unit_test_Ttype
     local Tpass Tbyte Tint Tlong Tfloat Tdouble
     local Tfail Tstr
     foreach T in `Tpass' `Tfail' {
-        cap multe Y `T', control(Wbyte)
+        cap multe Ydouble `T', control(Wbyte)
         local rc1 = _rc
         if ( `:list T in Tpass' ) {
             mata st_numscalar("`Texpected'", sort(uniqrows(st_data(., "`T'")), 1)[1])
@@ -92,7 +136,7 @@ program multe_unit_test_Wtype
     tempname Wexpected Wresult
     local Wpass Wbyte Wint Wlong Wfloat Wdouble Wstr
     foreach W in `Wpass' {
-        cap multe Y Tbyte, control(`W')
+        cap multe Ydouble Tbyte, control(`W')
         local rc1 = _rc
         if ( `rc1' != 0 ) {
             disp "(multe test fail): control type `:subinstr local W "W" ""' failed with _rc = `rc1'"
