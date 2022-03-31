@@ -64,7 +64,8 @@ It also computes and saves a decomposition of the ATEs into own-treatment effect
 Heteroskedasticity-robust standard errors (default) and standard errors that assume treatment propensity scores are known (oracle) are also reported. 
 
 {pstd}
-The {depvar} and {it:treatment} can be any numeric variables. However, each unique value of the {it:treatment} variable is taken as a distinct level of the treatment. The {cmd:control} variables can be numeric or string, but should define a series of categories ({cmd:multe} will turn the controls into a single, saturated group variable). Groups which do not satisfy overlap (i.e. there exists a treatment level for which there are no observations in that group) will be dropped (note, for example, a continuous control would normally define one category per obsefvation and thus drop all observations by this criterion).
+The {depvar} and {it:treatment} can be any numeric variables. However, each unique value of the {it:treatment} variable is taken as a distinct level of the treatment. The {cmd:control} variables can be numeric or string, but should define a series of categories ({cmd:multe} will turn the controls into a single, saturated group variable). 
+Groups which do not satisfy overlap (i.e. there exists a treatment level for which there are no observations in that group) will be dropped (note, for example, a continuous control would normally define one category per obsefvation and thus drop all observations by this criterion).
 
 {pstd}
 Alpha package for multiple treatment effects regression. For a detailed theoretical discussion of calculations done by {cmd:multe}, see Goldsmith-Pinkham, Hull, and Koles{c a'}r (2022).
@@ -76,16 +77,18 @@ Alpha package for multiple treatment effects regression. For a detailed theoreti
 
 {phang}{opth vce(str)} specifies the type of standard errors to print. The default "" is heteroskedasticity-robust, and "oracle" specifies standard errors that assume that the propensity score for each treatment level is known.
 
-{phang}{opth mata:save(str)} supplies an alternative name for the mata structure which stores all estimates and variables in mata (default name is "MulTEResults"). Note this is in addition to results stored in {cmd:e()}; see {it:{help multe##results:stored stores}} below for details.
+{phang}{opth mata:save(str)} supplies an alternative name for the mata structure which stores all estimates and variables in mata (default name is "MulTEResults"). 
+Note this is in addition to results stored in {cmd:e()}; see {it:{help multe##results:stored stores}} below for details.
 
 {phang}{opt gen:erate(options)} specifies whether to save the implicit ATE regression weights (lambda) and/or the saturated group-specific treatment effects (tau) as variables. 
-The user can optionally specify the names of these two sets of variables via the options {cmd:lambda}[{cmd:(}str{cmd:)}] and {cmd:tau}[{cmd:(}str{cmd:)}]. For example, {cmd:gen(lambda tau)} would generate both with default names, while {cmd:gen(lambda(lname) tau(tname))} would generate them with custom names.
+The user can optionally specify the names of these two sets of variables via the options {cmd:lambda}[{cmd:(}str{cmd:)}] and {cmd:tau}[{cmd:(}str{cmd:)}]. 
+For example, {cmd:gen(lambda tau)} would generate both with default names, while {cmd:gen(lambda(lname) tau(tname))} would generate them with custom names.
 
 {dlgtab:Generate Options}
 
-{phang}{cmd:lambda}[{cmd:(}str{cmd:)}] specifies an alternative prefix for the set of implicit ATE regression weights. Default prefix is "lambda".
+{phang}{cmd:lambda}[{cmd:(}str{cmd:)}] saves the set of implicit ATE regression weights as variables and optionally specifies an alternative prefix. Default prefix is "lambda".
 
-{phang}{cmd:tau}[{cmd:(}str{cmd:)}] specifies an alternative prefix for the saturated group-specific treatment effects variables. Default prefix is "tau".
+{phang}{cmd:tau}[{cmd:(}str{cmd:)}] saves the saturated group-specific treatment effects as variables and optionally specifies an alternative prefix. Default prefix is "tau".
 
 {marker example}{...}
 {title:Examples}
