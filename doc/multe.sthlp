@@ -16,14 +16,16 @@
 {title:Syntax}
 
 {pstd}
-Multiple treatment effects regression. TODO: xx short description.
+Multiple treatment effects regression. 
+Given a multi-valued treatment, a saturated group variable (or a {varlist} which will be used to create a single, saturated group variable), and a dependent variable, 
+{cmd:multe} computes equal-weighted (ATE), variance-weighted, efficiently-weighted treatment effects estimates and contamination bias decomposition.  
 
 {p 8 15 2}
 {cmd:multe}
 {depvar}
 {it:treatment}
 {ifin}
-{opth control(varname)}
+{opth control(varlist)}
 [{cmd:,} {it:{help multe##table_options:options}}]
 
 {synoptset 18 tabbed}{...}
@@ -31,18 +33,18 @@ Multiple treatment effects regression. TODO: xx short description.
 {synopthdr}
 {synoptline}
 {syntab :Options}
-{synopt :{opt vce(str)}} Type of standard errors to print: "" (default) or "oracle" (both are computed internally).
+{synopt :{opt vce(str)}} Type of standard errors to print: "" (heteroskedasticity-robust) or "oracle" (assumes that propensity scores are known). Both are computed internally.
 {p_end}
 {synopt :{opth mata:save(str)}} Name of mata object with results (default: MulTEResults).
 {p_end}
-{synopt :{opt gen:erate(options)}} Optionally save tau, lambda. See {it:{help multe##gen_options:generate options}}.
+{synopt :{opt gen:erate(options)}} Optionally save tau (saturated group-specific treatment effects), lambda (implicit ATE regression weights). See {it:{help multe##gen_options:generate options}}.
 {p_end}
 
 {marker gen_options}{...}
 {syntab :Generate Options}
-{synopt :{cmd:lambda}[{cmd:(}str{cmd:)}]} Save lambdas in dataset; optinally specity prefix (default: {cmd:lambda}).
+{synopt :{cmd:lambda}[{cmd:(}str{cmd:)}]} Save lambdas in dataset; optionally specify prefix (default: {cmd:lambda}).
 {p_end}
-{synopt :{cmd:tau}[{cmd:(}str{cmd:)}]} Save taus in dataset; optinally specity prefix (default: {cmd:tau}).
+{synopt :{cmd:tau}[{cmd:(}str{cmd:)}]} Save taus in dataset; optionally specify prefix (default: {cmd:tau}).
 {p_end}
 
 {p2colreset}{...}
@@ -52,24 +54,39 @@ Multiple treatment effects regression. TODO: xx short description.
 {title:Description}
 
 {pstd}
-Alpha package for multiple treatment effects regression. TODO: xx longer description.
+Alpha package for multiple treatment effects regression. 
+{cmd:multe} computes equal-weighted estimates (ATE), variance-weighted estimates (as in Angrist 1998 ECMA), and efficiently-weighted estimates (as in Goldsmith-Pinkham, Hull, and Kolesar (2022)). 
+
+{pstd}
+It also computes and saves a decomposition of the ATEs into own-treatment effect and contamination bias estimates, and calculates the worst-case positive and negative contamination bias for each treatment effect.
+
+{pstd}
+Heteroskedasticity-robust standard errors and standard errors that assume propensity scores are known are also reported. 
+
+{pstd}
+The {depvar} can be xx (TODO: unit test on outcome variable). The {it:treatment} can be an arbitrary multi-valued variable. The {cmd:control} variables can be numeric or string, continuous or categorical; 
+but note that {cmd:multe} will turn the vector of controls into a single, saturated group variable. Groups which do not satisfy overlap (i.e. there exists a treatment level for which there are no observations in that group) will be dropped.
+
+{pstd}
+For a detailed theoretical discussion of calculations done by {cmd:multe}, see Goldsmith-Pinkham, Hull, and Kolesar (2022).
 
 {marker options}{...}
 {title:Options}
 
 {dlgtab:Command Options}
 
-{phang}{opth vce(str)} TODO: xx
+{phang}{opth vce(str)} specifies the type of standard errors to print. The default "" is heteroskedasticity-robust, and "oracle" specifies standard errors that assume that the propensity score for each treatment level is known.
 
-{phang}{opth mata:save(str)} TODO: xx
+{phang}{opth mata:save(str)} supplies an alternative name for the mata struct which stores all estimates and variables in mata (default is "results").
 
-{phang}{opt gen:erate(options)} TODO: xx
+{phang}{opt gen:erate(options)} specifies whether to save the implicit ATE regression weights (lambda) and/or the saturated group-specific treatment effects (tau) as variables. 
+The user can also specify the names of these two sets of variables via the generate options {cmd:lambda(str)} and {cmd:tau(str)}.
 
 {dlgtab:Generate Options}
 
-{phang}{cmd:lambda}[{cmd:(}str{cmd:)}] TODO: xx
+{phang}{cmd:lambda}[{cmd:(}str{cmd:)}] specifies an alternative prefix for the set of implicit ATE regression weights. Default prefix is "lambda".
 
-{phang}{cmd:tau}[{cmd:(}str{cmd:)}] TODO: xx
+{phang}{cmd:tau}[{cmd:(}str{cmd:)}] specifies an alternative prefix for the saturated group-specific treatment effects variables. Default prefix is "tau".
 
 {marker example}{...}
 {title:Examples}
@@ -133,10 +150,10 @@ In addition, the following data are available in {cmd:e(mata)} (default name: Mu
             (k-1) by 3 matrix of coefficients
 
         real matrix estimates.se_po
-            (k-1) by 3 matrix of standard errors
+            (k-1) by 3 matrix of heteroskedasticity-robust standard errors
 
         real matrix estimates.se_or
-            (k-1) by 3 matrix of standard errors
+            (k-1) by 3 matrix of standard errors assuming treatment propensity scores by control group are known
 
         real vector estimates.Tvalues
             k by 1 vector with treatment levels
@@ -154,7 +171,7 @@ In addition, the following data are available in {cmd:e(mata)} (default name: Mu
             column names for printing/saving estimates
 
         void estimates.print(| real scalar digits)
-            print all estimates to console (default 6 dignificant digits)
+            print all estimates to console (default 6 significant digits)
 
         void estimates.save(string scalar outmatrix)
             save estimates to outmatrix
