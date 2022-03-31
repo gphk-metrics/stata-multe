@@ -54,21 +54,20 @@ Given a multi-valued treatment, a saturated group variable (or a {varlist} which
 {title:Description}
 
 {pstd}
-Alpha package for multiple treatment effects regression. 
-{cmd:multe} computes equal-weighted estimates (ATE), variance-weighted estimates (as in Angrist 1998 ECMA), and efficiently-weighted estimates (as in Goldsmith-Pinkham, Hull, and Kolesar (2022)). 
+{cmd:multe} computes equal-weighted estimates (ATE), variance-weighted estimates (as in Angrist 1998 ECMA), and efficiently-weighted estimates (as in Goldsmith-Pinkham, Hull, and Koles{c a'}r (2022)). 
 
 {pstd}
 It also computes and saves a decomposition of the ATEs into own-treatment effect and contamination bias estimates, and calculates the worst-case positive and negative contamination bias for each treatment effect.
 
 {pstd}
-Heteroskedasticity-robust standard errors and standard errors that assume propensity scores are known are also reported. 
+Heteroskedasticity-robust standard errors (default) and standard errors that assume treatment propensity scores are known (oracle) are also reported. 
 
 {pstd}
 The {depvar} can be xx (TODO: unit test on outcome variable). The {it:treatment} can be an arbitrary multi-valued variable. The {cmd:control} variables can be numeric or string, continuous or categorical; 
-but note that {cmd:multe} will turn the vector of controls into a single, saturated group variable. Groups which do not satisfy overlap (i.e. there exists a treatment level for which there are no observations in that group) will be dropped.
+but note that {cmd:multe} will turn the vector of controls into a single, saturated group variable. Groups which do not satisfy overlap (i.e. there exists a treatment level for which there are no observations) will be dropped.
 
 {pstd}
-For a detailed theoretical discussion of calculations done by {cmd:multe}, see Goldsmith-Pinkham, Hull, and Kolesar (2022).
+Alpha package for multiple treatment effects regression. For a detailed theoretical discussion of calculations done by {cmd:multe}, see Goldsmith-Pinkham, Hull, and Koles{c a'}r (2022).
 
 {marker options}{...}
 {title:Options}
@@ -198,5 +197,5 @@ In addition, the following data are available in {cmd:e(mata)} (default name: Mu
 {title:References}
 
 {pstd}
-TODO: xx Add reference?
+Goldsmith-Pinkham, Paul, Hull, Peter, Koles{c a'}r, Michal (2022).
 
