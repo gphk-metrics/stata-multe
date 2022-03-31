@@ -15,7 +15,7 @@ program multe, eclass
     local 0bak: copy local 0
     syntax varlist(numeric fv ts min=2 max=2)  /// depvar treatment
            [if] [in] ,                         /// subset
-        control(varname)                       /// control variable
+        control(varlist)                       /// control variable
     [                                          ///
         vce(str)                               /// SEs to be displayed
         GENerate(str)                          /// save lambdas/taus
