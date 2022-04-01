@@ -1,4 +1,4 @@
-v 0.1.5
+v 0.2.1
 d
 d 'MULTE': Multiple Treatment Effects regression
 d
@@ -9,10 +9,11 @@ d KW: xx
 d
 d Requires: Stata version 14.1
 d
-d Distribution-Date: 20220323
+d Distribution-Date: 20220331
 d
 f build/lmulte.mlib
 f src/ado/multe.ado
+f src/ado/multe_p.ado
 f doc/multe.sthlp
 f src/mata/multe.mata
 f src/mata/multe_helpers.mata

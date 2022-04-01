@@ -16,31 +16,43 @@ struct MulTE_Results
 
 class MulTE_Estimates
 {
+    real scalar n
+    real scalar k
     real matrix est
     real matrix se_po
     real matrix se_or
     real   vector Tvalues
     string vector Tlabels
     string vector colnames
+    string scalar Tvar
+    string scalar Yvar
 
     void new()
     void print()
     void save()
+    void post()
 }
 
 class MulTE_Decomposition
 {
-    real matrix tmp
+    real scalar n
+    real scalar k
     real matrix est
     real matrix se
-    real matrix tauhat
-    real matrix lambda
+    real matrix tmp
+    real matrix gammam
+    real matrix delta_pr
+
     real   vector Tvalues
+    string vector Tlabels
+    string vector Tvar
+    string vector Yvar
     string vector tauhat_names
     string vector lambda_names
-    string vector Tlabels
     string vector colnames
 
+    real matrix tauhat()
+    real matrix lambda()
     void new()
     void print()
     void save()
@@ -56,12 +68,12 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
 
     real scalar i, l, j, n, k, kw, j1, j2
     real vector Y, X
-    real vector xlevels, X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean, Pr_W, beta_hat
+    real vector xlevels, X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean
     real matrix Xm, psi_alpha0, ps, Xt, WmXm
     real matrix gamma, psi_gamma, deltak, psi_deltak, ddX, M, psi
     real matrix est, estk, se_or, se_po, se, psimin, psimax
     real matrix alphak, psi_alphak, psi_or, psi_po
-    real matrix delta_kl, lambda, gammam, tauhat
+    real matrix delta_kl, delta_pr, gammam
     real vector s, Xdot, eps, sk, ghelper, gi, gd, di
 
     // -----------------------------------------------------------------
@@ -75,6 +87,9 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     k       = length(xlevels)
     kw      = cols(Wm)
     X0      = (X :== xlevels[1])
+    for (j = 1; j <= k; j++) {
+        _editvalue(X, xlevels[j], j)
+    }
     Xm      = designmatrix(X)
     alpha0  = multe_helper_ols(select(Y, X0), select(Wm, X0))
 
@@ -134,11 +149,15 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     }
 
     Tlab = st_varvaluelabel(Tvar)
+    results.estimates.n     = n
+    results.estimates.k     = k
     results.estimates.est   = est
     results.estimates.se_po = se_po
     results.estimates.se_or = se_or
     results.estimates.Tvalues = xlevels
     results.estimates.Tlabels = Tlab == ""? strofreal(xlevels): st_vlmap(Tlab, xlevels)
+    results.estimates.Tvar    = Tvar
+    results.estimates.Yvar    = Yvar
 
 // TODO: xx decide whether to make decomposition a separate function
 
@@ -227,22 +246,20 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     }
 
     delta_kl = rowshape(rowshape(rd.coefficients[1..(k-1),.], 1), (k-1)*(k-1))'
-    Pr_W     = mean(Wm)'
-    lambda   = Wm * (delta_kl :/ Pr_W)
+    delta_pr = delta_kl :/ (mean(Wm)')
+    gammam   = rowshape(gamma, k-1)
 
-    gammam = rowshape(gamma, k-1) // w x k matrix
-    tauhat = Wm * gammam'         // N x k matrix
-
-// TODO: xx "beta", "own", "cont. bias", "maxbias", minbias"
-// TODO: xx rownames are labels or "se"
-// TODO: xx tauhat and lambda needn't be saved _always_
+    results.decomposition.n   = n
+    results.decomposition.k   = k
     results.decomposition.est = est
     results.decomposition.se  = se
     results.decomposition.tmp = rowshape((est, se), 2 * rows(est))
-    results.decomposition.Tvalues = xlevels
-    results.decomposition.Tlabels = results.estimates.Tlabels
-    results.decomposition.tauhat = tauhat
-    results.decomposition.lambda = lambda
+    results.decomposition.Tvalues  = xlevels
+    results.decomposition.Tlabels  = results.estimates.Tlabels
+    results.decomposition.Tvar     = Tvar
+    results.decomposition.Yvar     = Yvar
+    results.decomposition.delta_pr = delta_pr
+    results.decomposition.gammam   = gammam  
     results.decomposition.tauhat_names = tauhat_names
     results.decomposition.lambda_names = lambda_names
 
@@ -263,6 +280,43 @@ void function MulTE_Estimates::save(string scalar outmatrix)
     st_matrix(outmatrix, rowshape((est, se_po, se_or), rows(est) * 3))
     st_matrixcolstripe(outmatrix, (J(cols(est), 1, ""), colnames))
     st_matrixrowstripe(outmatrix, (J(3 * rows(est), 1, ""), rownames))
+}
+
+void function MulTE_Estimates::post(string scalar b, string scalar V,| string scalar vce)
+{
+    real scalar uselevels
+    real matrix best, sest
+    string vector rownames, eqnames
+
+    uselevels = any(st_vartype(Tvar) :== ("byte", "int", "long"))
+    uselevels = uselevels | all(floor(Tvalues) :== Tvalues)
+    if ( uselevels ) {
+        rownames    = strofreal(Tvalues)
+        rownames[1] = rownames[1] + "b"
+        rownames    = rownames :+ "." :+ Tvar
+    }
+    else {
+        printf("{bf:note:} table coefficients correspond to treatment values\n")
+        rownames = Tlabels
+    }
+    rownames = J(cols(est), 1, rownames)
+    best     = J(1, cols(est), 0) \ est
+    eqnames  = rowshape(J(1, rows(best), colnames), 1)'
+
+    if ( vce == "oracle" ) {
+        sest = J(1, cols(se_or), 0) \ se_or
+    }
+    else {
+        sest = J(1, cols(se_po), 0) \ se_po
+    }
+
+    st_matrix(b, rowshape(best', 1))
+    st_matrixcolstripe(b, (eqnames, rownames))
+    st_matrixrowstripe(b, ("", Yvar))
+
+    st_matrix(V, diag(rowshape(sest', 1):^2))
+    st_matrixcolstripe(V, (eqnames, rownames))
+    st_matrixrowstripe(V, (eqnames, rownames))
 }
 
 void function MulTE_Estimates::print(| real scalar digits)
@@ -338,5 +392,15 @@ void function MulTE_Decomposition::save(string scalar outmatrix)
 
 void function MulTE_Decomposition::print(| real scalar digits)
 {
+}
+
+real matrix function MulTE_Decomposition::lambda(real matrix Wm)
+{
+    return(Wm * delta_pr)
+}
+
+real matrix function MulTE_Decomposition::tauhat(real matrix Wm)
+{
+    return(Wm * gammam')
 }
 end

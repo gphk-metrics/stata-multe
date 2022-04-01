@@ -1,63 +1,20 @@
-global star "~/Dropbox/GPH_ExaminerDesign/Applications/STAR"
-global data	"${star}/Data"
-// global star "/Users/jchang42/Dropbox (Brown)/GPH_ExaminerDesign/Applications/STAR"
-// global data "${star}/Data"
+version 14.1
+set seed 5371
+set linesize 112
+
+cap which multe
+if _rc {
+    disp as err "Please install multe"
+    exit 111
+} 
 
 capture program drop main
 program main
+    qui do test/test_replicate.do
+    qui do test/test_unit.do
 
-    mata mata clear
-    qui do src/ado/multe.ado
-    qui do src/mata/multe_helpers.mata
-    qui do src/mata/multe.mata
-	qui do test/output.ado
-	qui do test/export_latex.mata
-    load_test_data
-    multe score treatment, control(school) matasave(results)
-	// output, treatment(treatment) matasave(results) ///
-        // outpath("${star}/Output/tables/test") // pick your outpath
-    mata mata desc
-end
-
-capture program drop load_test_data
-program load_test_data
-    use `"${data}/STARgk_Lambdas.dta"', clear
-
-    gen treatment = "regular"
-    replace treatment = "small" if gksmall == 1
-    replace treatment = "aide"  if gkaide  == 1
-
-    keep gkaggregate2 treatment gkschid gktchid
-    rename (gkaggregate2 treatment gkschid gktchid) (score treatmentlab schoollab teacherlab)
-    gen treatment = 1 
-    replace treatment = 2 if treatmentlab == "small"
-    replace treatment = 3 if treatmentlab == "aide"
-    label define treatmentlab 1 "regular" 2 "small" 3 "aide"
-    label values treatment treatmentlab
-    factor school    = schoollab,  replace
-    factor teacher   = teacherlab, replace
-end
-
-capture program drop factor
-program factor
-    syntax anything(equalok), [replace]
-    gettoken gen varlist: anything, p(=)
-    gettoken _ varlist: varlist
-    confirm var `varlist'
-    foreach var of varlist `varlist' {
-        gettoken outvar gen: gen
-        local i = 0
-        local lbldef
-        glevelsof `var', silent loc(`var')
-        foreach level of local `var' {
-            mata st_local("lbldef`++i'", `"`i' "`level'""')
-            mata st_local("lbldef",  st_local("lbldef") + st_local("lbldef`i'"))
-        }
-        if "`replace'" != "" cap label drop `var'
-        label define `var' `lbldef'
-        gegen `outvar' = group(`var'), `replace'
-        label values `outvar' `var'
-    }
+    multe_unit_tests
+    multe_replicate_tests
 end
 
 main
