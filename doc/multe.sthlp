@@ -25,9 +25,9 @@ Given a multi-valued treatment, a saturated group variable (or a {varlist} which
 {depvar}
 {it:treatment}
 {ifin}
-[{cmd:,}
+{cmd:,}
 {opth control(varlist)}
-{it:{help multe##table_options:options}}]
+[{it:{help multe##table_options:options}}]
 
 {synoptset 18 tabbed}{...}
 {marker table_options}{...}
