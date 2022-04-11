@@ -86,11 +86,11 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     xlevels = uniqrows(X)
     k       = length(xlevels)
     kw      = cols(Wm)
-    X0      = (X :== xlevels[1])
+    Xm      = J(n, k, 0)
     for (j = 1; j <= k; j++) {
-        _editvalue(X, xlevels[j], j)
+        Xm[., j] = (X :== xlevels[j])
     }
-    Xm      = designmatrix(X)
+    X0      = Xm[., 1]
     alpha0  = multe_helper_ols(select(Y, X0), select(Wm, X0))
 
     psi_alpha0  = (X0 :* Wm :* (Y - Wm * alpha0)) * qrinv(cross(X0 :* Wm, Wm)/n)

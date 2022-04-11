@@ -144,8 +144,7 @@ program Display, eclass
     else ereturn local vcetype ""
     ereturn local vce `vce'
 
-    _coef_table, noempty noomitted `options'
-    disp as txt "({bf:warning:} off-diagonal entries of Vcov matrix hard-coded as 0)"
+    _coef_table, noempty `options'
     //     level(95)
     //     bmatrix(`b')      // e(b)
     //     vmatrix(`V')      // e(V)
