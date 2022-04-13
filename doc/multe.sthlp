@@ -36,7 +36,7 @@ Given a multi-valued treatment, a saturated group variable (or a {varlist} which
 {syntab :Options}
 {synopt :{opt vce(str)}} Type of standard errors to print: "" (heteroskedasticity-robust) or "oracle" (assumes that propensity scores are known). Both are computed internally.
 {p_end}
-{synopt :{opth mata:save(str)}} Name of mata object with results (default: MulTEResults).
+{synopt :{opth mata:save(str)}} Name of mata object with results (default: multe_results).
 {p_end}
 {synopt :{opt gen:erate(options)}} Optionally save tau (saturated group-specific treatment effects), lambda (implicit ATE regression weights). See {it:{help multe##gen_options:generate options}}.
 {p_end}

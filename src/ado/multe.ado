@@ -38,7 +38,7 @@ program multe, eclass
     marksample touse, strok
 
     * Copy to mata for mata fun
-    if "`matasave'" == "" local results MulTEResults
+    if "`matasave'" == "" local results multe_results
     else local results: copy local matasave
 
     * Check each control strata has all treatment levels

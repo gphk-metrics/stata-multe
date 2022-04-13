@@ -16,7 +16,7 @@ program multe_replicate_tests
     else {
         disp "(multe test success): multe ran successfully on STAR data"
     }
-	* output, treatment(treatment) matasave(MulTEResults) ///
+	* output, treatment(treatment) matasave(multe_results) ///
     *     outpath("${star}/Output/tables/test") // pick your outpath
     * mata mata desc
 end
