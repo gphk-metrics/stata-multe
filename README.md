@@ -3,7 +3,7 @@ MulTE
 
 Multiple Treatment Effects regression
 
-`version 0.2.1 31Mar2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
+`version 0.2.2 13Apr2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
 
 ### Installation
 
@@ -49,6 +49,8 @@ gen W = mod(_n, 10)
 gen Y = T + runiform()
 multe Y T, control(W)
 ereturn list
+mata `e(mata)'.decomposition.print(0)
+mata `e(mata)'.decomposition.print(1)
 multe, vce(oracle)
 multe Y T, control(W) gen(lambda tau)
 multe Y T, control(W) gen(lambda(awesomeName) tau(coolerName))

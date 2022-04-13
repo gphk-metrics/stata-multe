@@ -376,7 +376,7 @@ void function MulTE_Estimates::print(| real scalar digits)
 
 void function MulTE_Decomposition::new()
 {
-    colnames = ("beta", "own", "cont bias", "minbias", "maxbias")'
+    colnames = ("Coef", "Own Effect", "Bias", "Min Bias", "Max Bias")'
 }
 
 void function MulTE_Decomposition::save(string scalar outmatrix)
@@ -390,8 +390,71 @@ void function MulTE_Decomposition::save(string scalar outmatrix)
     st_matrixrowstripe(outmatrix, (J(2 * rows(est), 1, ""), rownames))
 }
 
-void function MulTE_Decomposition::print(| real scalar digits)
+void function MulTE_Decomposition::print(| real scalar minmax, real scalar digits)
 {
+    real scalar i, j, kcolprint
+    real vector lengths
+    string scalar colsep
+    string matrix fmt_res, fmt_est, fmt_se
+    string vector rownames, formats, formats2
+
+    rownames = Tlabels[2::length(Tvalues)], J(rows(est), 1, "")
+    rownames = rowshape(rownames, rows(est) * 2)
+
+    if ( args() < 1 ) minmax = 0
+    if ( args() < 2 ) digits = 6
+
+    fmt_est = J(rows(est), cols(est), "")
+    fmt_se  = J(rows(est), cols(est), "")
+
+    for (i = 1; i <= rows(est); i++) {
+        for (j = 1; j <= cols(est); j++) {
+            fmt_est[i, j] = strtrim(sprintf("%21." + strofreal(digits) + "f", est[i, j]))
+            fmt_se[i, j]  = "(" + strtrim(sprintf("%21." + strofreal(digits) + "f", se[i, j])) + ")"
+        }
+    }
+
+    fmt_res  = rowshape((fmt_est, fmt_se), rows(est) * 2)
+    lengths  = max((strlen(rownames) \ strlen(Tvar))), colmax(strlen(colnames' \ fmt_res))
+    lengths  = lengths :+ 3
+    formats  = " %" :+ strofreal(lengths) :+ "s"
+    formats2 = "-%" :+ strofreal(lengths) :+ "s"
+
+    colsep    = "|"
+    colsep    = " "
+    colsep    = ""
+    kcolprint = minmax? length(colnames): (length(colnames) - 2)
+    printf("\nContamination Bias Decomposition\n")
+    printf("-%s\n", "-" * (sum(lengths[1::(kcolprint+1)]) + (strlen(colsep) + 1) * (kcolprint + 1) - 1))
+    printf(colsep)
+
+    printf(formats[1], Tvar)
+    for (j = 1; j <= kcolprint; j++) {
+        printf(colsep)
+        printf(formats[j + 1], colnames[j])
+    }
+    // printf("|\n")
+    printf("\n")
+
+    for (j = 1; j <= (kcolprint + 1); j++) {
+        printf(colsep)
+        printf(formats2[j], "-" * lengths[j])
+    }
+    // printf("|\n")
+    printf("\n")
+
+    for (i = 1; i <= rows(fmt_res); i++) {
+        printf(colsep)
+        printf(formats[1], rownames[i])
+        for (j = 1; j <= kcolprint; j++) {
+            printf(colsep)
+            printf(formats[j + 1], fmt_res[i, j])
+        }
+        // printf("|\n")
+        printf("\n")
+    }
+    printf("-%s\n", "-" * (sum(lengths[1::(kcolprint+1)]) + (strlen(colsep) + 1) * (kcolprint + 1) - 1))
+    printf("SE in parentheses; bias estimates stored in e(decomposition).\n")
 }
 
 real matrix function MulTE_Decomposition::lambda(real matrix Wm)

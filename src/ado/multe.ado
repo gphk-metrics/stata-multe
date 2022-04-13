@@ -1,4 +1,4 @@
-*! version 0.2.1 31Mar2022
+*! version 0.2.2 13Apr2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com>
@@ -117,6 +117,8 @@ program multe, eclass
 
     ereturn matrix estimates     = `estmatrix'
     ereturn matrix decomposition = `decompmatrix'
+
+    mata `results'.decomposition.print()
 end
 
 capture program drop Replay
@@ -129,6 +131,7 @@ end
 capture program drop Display
 program Display, eclass
     syntax namelist(max = 1), [vce(str) touse(str) repost *]
+    mata printf("\nTreatment Effect Estimates\n")
     if "`post'" == "" local post post
     FreeMatrix b V
     mata `namelist'.estimates.post("`b'", "`V'", "`vce'")
