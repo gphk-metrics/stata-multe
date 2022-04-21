@@ -120,7 +120,7 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     // TE estimates
     // -----------------------------------------------------------------
 
-    var_po_onem = var_or_onem = J(k, 1, 0)    
+    var_po_onem = var_or_onem = J(k, 1, 0)
     psi_pom = psi_orm = J(n, k*3, 0)
     Wmean = mean(Wm)
     for(j = 2; j <= k; j++) {
@@ -162,12 +162,12 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     }
 
     // Compute vcov matrices
-    // TODO: confirm that the variance formula is correct
+    // TODO: xx confirm that the variance formula is correct
     psi_pom_tl = psi_pom :- (colsum(psi_pom) :/ n)
-    po_vcov = (psi_pom_tl' * psi_pom_tl) / n
     psi_orm_tl = psi_orm :- (colsum(psi_orm) :/ n)
-    or_vcov = (psi_orm_tl' * psi_orm_tl) / n
-    
+    po_vcov    = (psi_pom_tl' * psi_pom_tl) / n
+    or_vcov    = (psi_orm_tl' * psi_orm_tl) / n
+
     for(j=2; j<=k; j++) {
         po_vcov[j+k, j+k] = var_po_onem[j,1]
         or_vcov[j+k, j+k] = var_or_onem[j,1]
@@ -186,12 +186,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     results.estimates.Tlabels = Tlab == ""? strofreal(xlevels): st_vlmap(Tlab, xlevels)
     results.estimates.Tvar    = Tvar
     results.estimates.Yvar    = Yvar
-
-    // TODO: not sure why when I remove these two lines the mata function has a conformability error. I'm pretty sure these objects aren't used.
     results.estimates.po_vcov = po_vcov
     results.estimates.or_vcov = or_vcov
-
-// TODO: xx decide whether to make decomposition a separate function
 
     // -----------------------------------------------------------------
     // Decomposition (not run)
@@ -291,7 +287,7 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     results.decomposition.Tvar     = Tvar
     results.decomposition.Yvar     = Yvar
     results.decomposition.delta_pr = delta_pr
-    results.decomposition.gammam   = gammam  
+    results.decomposition.gammam   = gammam
     results.decomposition.tauhat_names = tauhat_names
     results.decomposition.lambda_names = lambda_names
 
@@ -336,11 +332,9 @@ void function MulTE_Estimates::post(string scalar b, string scalar V,| string sc
     eqnames  = rowshape(J(1, rows(best), colnames), 1)'
 
     if ( vce == "oracle" ) {
-        // changed sest = J(1, cols(se_or), 0) \ se_or to sest = or_vcov
         sest = or_vcov
     }
     else {
-        // changed sest = J(1, cols(se_po), 0) \ se_po to sest = po_vcov
         sest = po_vcov
     }
 
@@ -348,7 +342,6 @@ void function MulTE_Estimates::post(string scalar b, string scalar V,| string sc
     st_matrixcolstripe(b, (eqnames, rownames))
     st_matrixrowstripe(b, ("", Yvar))
 
-    // changed st_matrix(V, diag(rowshape(sest', 1):^2)) to: st_matrix(V, sest) 
     st_matrix(V, sest)
     st_matrixcolstripe(V, (eqnames, rownames))
     st_matrixrowstripe(V, (eqnames, rownames))

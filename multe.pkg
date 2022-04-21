@@ -17,3 +17,4 @@ f src/ado/multe_p.ado
 f doc/multe.sthlp
 f src/mata/multe.mata
 f src/mata/multe_helpers.mata
+f test/example_star.dta
