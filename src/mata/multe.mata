@@ -27,6 +27,9 @@ class MulTE_Estimates
     string scalar Tvar
     string scalar Yvar
 
+    real matrix po_vcov
+    real matrix or_vcov
+
     void new()
     void print()
     void save()
@@ -74,6 +77,7 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     real matrix est, estk, se_or, se_po, se, psimin, psimax
     real matrix alphak, psi_alphak, psi_or, psi_po
     real matrix delta_kl, delta_pr, gammam
+    real matrix psi_pom, psi_orm, var_po_onem, var_or_onem, psi_pom_tl, po_vcov, psi_orm_tl, or_vcov
     real vector s, Xdot, eps, sk, ghelper, gi, gd, di
 
     // -----------------------------------------------------------------
@@ -116,6 +120,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     // TE estimates
     // -----------------------------------------------------------------
 
+    var_po_onem = var_or_onem = J(k, 1, 0)    
+    psi_pom = psi_orm = J(n, k*3, 0)
     Wmean = mean(Wm)
     for(j = 2; j <= k; j++) {
         alphak  = multe_helper_ols(select(Y, Xm[., j]), select(Wm, Xm[., j]))
@@ -126,6 +132,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
         psi_or = ((psi_alphak - psi_alpha0) * Wmean')
         se_or[j - 1, 1] = sqrt(variance(psi_or) * (n - 1) / n^2)
         se_po[j - 1, 1] = sqrt(variance(psi_or + ((Wm :-  Wmean) * (alphak - alpha0))) * (n - 1) / n^2)
+        psi_orm[.,j] = psi_or * sqrt((n - 1) / n^2)
+        psi_pom[.,j] = (psi_or + ((Wm :-  Wmean) * (alphak - alpha0))) * sqrt((n - 1) / n^2)
 
         // One treatment at a time
         s               = (X0 :| Xm[., j])
@@ -137,6 +145,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
         eps = select(Xm[., j], s) :* (select(Y, s) - select(Wm, s) * alphak) +
               select(X0, s) :* (select(Y, s) - select(Wm, s) * alpha0)
         se_or[j - 1, 2] = sqrt(sum((eps:^2) :* (Xdot:^2))/sum(Xdot:^2)^2)
+        var_po_onem[j, 1] = sum((rk.residuals:^2) :* (Xdot:^2)) / sum(Xdot:^2):^2
+        var_or_onem[j, 1] = sum((eps:^2) :* (Xdot:^2)) / sum(Xdot:^2)^2
 
         // common weights
         psi_or = lam :* (Xm[., j] :* (Y - Wm * alphak) :/ ps[., j] -
@@ -146,7 +156,25 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
                   Xt[., 1] :* ts[., 1] - Xt[., j] :* ts[., j] + rowsum(Xt :* (sk - s0))) / mean(lam)
         se_po[j-1, 3] = sqrt(variance(psi_po)*(n-1)/n^2)
         se_or[j-1, 3] = sqrt(variance(psi_or)*(n-1)/n^2)
+        psi_pom[., j+(k*2)] = psi_po*sqrt((n-1)/n^2)
+        psi_orm[., j+(k*2)] = psi_or*sqrt((n-1)/n^2)
+
     }
+
+    // Compute vcov matrices
+    // TODO: confirm that the variance formula is correct
+    psi_pom_tl = psi_pom :- (colsum(psi_pom) :/ n)
+    po_vcov = (psi_pom_tl' * psi_pom_tl) / n
+    psi_orm_tl = psi_orm :- (colsum(psi_orm) :/ n)
+    or_vcov = (psi_orm_tl' * psi_orm_tl) / n
+    
+    for(j=2; j<=k; j++) {
+        po_vcov[j+k, j+k] = var_po_onem[j,1]
+        or_vcov[j+k, j+k] = var_or_onem[j,1]
+    }
+
+    po_vcov = blockdiag(po_vcov[|1,1 \ k, k|], blockdiag(po_vcov[|k+1, k+1 \ 2*k, 2*k|], po_vcov[|2*k+1, 2*k+1 \ 3*k, 3*k|]))
+    or_vcov = blockdiag(or_vcov[|1,1 \ k, k|], blockdiag(or_vcov[|k+1, k+1 \ 2*k, 2*k|], or_vcov[|2*k+1, 2*k+1 \ 3*k, 3*k|]))
 
     Tlab = st_varvaluelabel(Tvar)
     results.estimates.n     = n
@@ -158,6 +186,10 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     results.estimates.Tlabels = Tlab == ""? strofreal(xlevels): st_vlmap(Tlab, xlevels)
     results.estimates.Tvar    = Tvar
     results.estimates.Yvar    = Yvar
+
+    // TODO: not sure why when I remove these two lines the mata function has a conformability error. I'm pretty sure these objects aren't used.
+    results.estimates.po_vcov = po_vcov
+    results.estimates.or_vcov = or_vcov
 
 // TODO: xx decide whether to make decomposition a separate function
 
@@ -304,17 +336,20 @@ void function MulTE_Estimates::post(string scalar b, string scalar V,| string sc
     eqnames  = rowshape(J(1, rows(best), colnames), 1)'
 
     if ( vce == "oracle" ) {
-        sest = J(1, cols(se_or), 0) \ se_or
+        // changed sest = J(1, cols(se_or), 0) \ se_or to sest = or_vcov
+        sest = or_vcov
     }
     else {
-        sest = J(1, cols(se_po), 0) \ se_po
+        // changed sest = J(1, cols(se_po), 0) \ se_po to sest = po_vcov
+        sest = po_vcov
     }
 
     st_matrix(b, rowshape(best', 1))
     st_matrixcolstripe(b, (eqnames, rownames))
     st_matrixrowstripe(b, ("", Yvar))
 
-    st_matrix(V, diag(rowshape(sest', 1):^2))
+    // changed st_matrix(V, diag(rowshape(sest', 1):^2)) to: st_matrix(V, sest) 
+    st_matrix(V, sest)
     st_matrixcolstripe(V, (eqnames, rownames))
     st_matrixrowstripe(V, (eqnames, rownames))
 }
