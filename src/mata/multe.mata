@@ -448,8 +448,6 @@ void function MulTE_Decomposition::print(| real scalar minmax, real scalar digit
     formats  = " %" :+ strofreal(lengths) :+ "s"
     formats2 = "-%" :+ strofreal(lengths) :+ "s"
 
-    colsep    = "|"
-    colsep    = " "
     colsep    = ""
     kcolprint = minmax? length(colnames): (length(colnames) - 2)
     printf("\nContamination Bias Decomposition\n")

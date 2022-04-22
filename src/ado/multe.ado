@@ -1,4 +1,4 @@
-*! version 0.2.2 13Apr2022
+*! version 0.2.3 22Apr2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com>
@@ -112,7 +112,6 @@ program multe, eclass
     ereturn local cmdline: copy local cmdline
     ereturn local depvar  = "`depvar'"
     ereturn local control = "`control'"
-    ereturn local predict = "multe_p"
     ereturn local mata    = "`results'"
 
     ereturn matrix estimates     = `estmatrix'
