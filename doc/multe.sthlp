@@ -70,7 +70,8 @@ Heteroskedasticity-robust standard errors (default) and heteroskedasticity-robus
 {pstd}
 The {depvar} and {it:treatment} can be any numeric variables. However, each unique value of the {it:treatment} variable is taken as a distinct level of the treatment. The lowest value of
 {it:treatment} is picked to be the control group. The {cmd:control} variables can be numeric or string, but should define a series of categories ({cmd:multe} will turn the controls into a
-single, saturated group variable). Groups which do not satisfy overlap (i.e. there exists a treatment level for which there are no observations in that group) will be dropped.
+single, saturated group variable). Groups which do not satisfy overlap (i.e. the number of unique treatment levels in that group is less than the total number of unique treatment levels)
+will be dropped.
 
 {pstd}
 For a detailed theoretical discussion of calculations done by {cmd:multe}, see Goldsmith-Pinkham et al. (2022). Examples are provided below, including the Project STAR
@@ -119,9 +120,28 @@ would generate them with custom names.
 
 {pstd}Example 2: Project STAR
 
-{pstd}The data for this example can be downloaded from xx.
+{pstd}The data for this example can be downloaded with the {cmd:multe} package by specifying the option {cmd:all} (e.g. {it:ssc install multe, all}).
 
-{phang2}{xx insert example here.}{p_end}
+{phang2}{cmd:. use "test/example_star.dta", clear}{p_end}
+{phang2}{cmd:. multe score treatment, control(school)}{p_end}
+{phang2}{cmd:. ereturn list}{p_end}
+{phang2}{cmd:. multe, vce(oracle)}{p_end}
+{phang2}{cmd:. multe score treatment, control(school) gen(lambda(M_) tau(tauhat_))}{p_end}
+{phang2}{cmd:. desc, full}{p_end}
+
+{pstd}After obtaining the implicit equal-weighted regression weights (lambda) and group-specific treatment effects (tau), you can calculate
+the correlations to get a sense of how much contamination bias might affect ATE estimates:
+
+{phang2}{cmd:. forval i=1/2 {c -(}}{p_end}
+{phang2}{cmd:. forval j=1/2 {c -(}}{p_end}
+{phang2}{cmd:. corr tauhat_`j' M_`i'`j'}{p_end}
+{phang2}{cmd:. {c )-}}{p_end}
+{phang2}{cmd:. {c )-}}{p_end}
+
+{pstd}You can also optionally specify an alternative name for the mata struct which contains store results (see {it:{help multe##mata:Stored mata results}}). 
+
+{phang2}{cmd:. multe score treatment, control(school) matasave(matastructname)}{p_end}
+{phang2}{cmd:. mata mata desc}{p_end}
 
 {marker results}{...}
 {title:Stored results}
@@ -146,7 +166,8 @@ would generate them with custom names.
 
 {p2col 5 23 26 2: Matrices}{p_end}
 {synopt:{cmd:e(b)}}coefficient vector{p_end}
-{synopt:{cmd:e(V)}}diagonal matrix of squared standard errors{p_end}
+{synopt:{cmd:e(V)}}block diagonal matrix of three covariance matrices corresponding to the ATE estimates, one-at-a-time estimates, and efficiently-weighted 
+estimates. Note the covariance matrix for the one-at-a-time estimates only reports diagonal terms.{p_end}
 {synopt:{cmd:e(estimates)}}matrix of coefficients, including SE and orable SE.{p_end}
 {synopt:{cmd:e(decomposition)}}decomposition matrix (beta, own effect, contamination bias, minimum bias, maximum bias){p_end}
 
@@ -154,8 +175,9 @@ would generate them with custom names.
 {synopt:{cmd:e(sample)}}marks estimation sample{p_end}
 {p2colreset}{...}
 
+{marker mata}{...}
 {pstd}
-In addition, the following data are available in {cmd:e(mata)} (default name: MulTEResults):
+In addition, the following data are available in {cmd:e(mata)} (default name: multe_results):
 
         real scalar estimates.n
             number of observations
