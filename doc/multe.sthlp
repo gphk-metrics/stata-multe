@@ -119,9 +119,17 @@ would generate them with custom names.
 
 {pstd}Example 2: Project STAR
 
-{pstd}The data for this example can be downloaded from xx.
+{pstd}The data for this example can be downloaded with the {cmd:multe} package by specifying the option {cmd:all} (e.g. {it:ssc install multe, all}).
 
-{phang2}{xx insert example here.}{p_end}
+{phang2}{cmd:. use "test/example_star.dta", clear}{p_end}
+{phang2}{cmd:. multe score treatment, control(school)}{p_end}
+{phang2}{cmd:. ereturn list}{p_end}
+{phang2}{cmd:. multe, vce(oracle)}{p_end}
+{phang2}{cmd:. multe score treatment, control(school) gen(lambda tau)}{p_end}
+{phang2}{cmd:. multe score treatment, control(school) gen(lambda(lam))}{p_end}
+{phang2}{cmd:. multe score treatment, control(school) matasave(matastructname)}{p_end}
+{phang2}{cmd:. mata mata desc}{p_end}
+{phang2}{cmd:. desc, full}{p_end}
 
 {marker results}{...}
 {title:Stored results}
