@@ -114,6 +114,7 @@ would generate them with custom names.
 {phang2}{cmd:. multe, vce(oracle)                                            }{p_end}
 {phang2}{cmd:. multe Y T, control(W) gen(lambda tau)                         }{p_end}
 {phang2}{cmd:. multe Y T, control(W) gen(lambda(awesomeName) tau(coolerName))}{p_end}
+{phang2}{cmd:. mata `e(mata)'.decomposition.print(1)                         }{p_end}
 {phang2}{cmd:. desc, full                                                    }{p_end}
 
 {title:Example 2: Project STAR}
@@ -130,11 +131,7 @@ would generate them with custom names.
 {pstd}After obtaining the implicit equal-weighted regression weights (lambda) and group-specific treatment effects (tau), you can calculate
 the correlations to get a sense of how much contamination bias might affect ATE estimates:
 
-{phang2}{cmd:. forval i=1/2 {c -(}      }{p_end}
-{phang2}{cmd:. forval j=1/2 {c -(}      }{p_end}
-{phang2}{cmd:. corr tauhat_`j' M_`i'`j' }{p_end}
-{phang2}{cmd:. {c )-}                   }{p_end}
-{phang2}{cmd:. {c )-}                   }{p_end}
+{phang2}{cmd:. corr tauhat_? M_??}{p_end}
 
 {pstd}You can also optionally specify an alternative name for the mata struct which contains store results (see {it:{help multe##mata:Stored mata results}}).
 
