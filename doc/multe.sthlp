@@ -114,6 +114,7 @@ would generate them with custom names.
 {phang2}{cmd:. multe, vce(oracle)                                            }{p_end}
 {phang2}{cmd:. multe Y T, control(W) gen(lambda tau)                         }{p_end}
 {phang2}{cmd:. multe Y T, control(W) gen(lambda(awesomeName) tau(coolerName))}{p_end}
+{phang2}{cmd:. mata `e(mata)'.decomposition.print(1)                         }{p_end}
 {phang2}{cmd:. desc, full                                                    }{p_end}
 
 {title:Example 2: Project STAR}
