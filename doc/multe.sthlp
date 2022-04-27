@@ -128,8 +128,8 @@ would generate them with custom names.
 {phang2}{cmd:. multe score treatment, control(school) gen(lambda(M_) tau(tauhat_)) }{p_end}
 {phang2}{cmd:. desc, full                                                          }{p_end}
 
-{pstd}After obtaining the implicit equal-weighted regression weights (lambda) and group-specific treatment effects (tau), you can calculate
-the correlations to get a sense of how much contamination bias might affect ATE estimates:
+{pstd}After obtaining the implicit regression weights (lambda) and group-specific treatment effects (tau) based on a partially linear model, you can calculate
+the correlations to get a sense of how much contamination bias might affect estimates from such a model:
 
 {phang2}{cmd:. corr tauhat_? M_??}{p_end}
 
