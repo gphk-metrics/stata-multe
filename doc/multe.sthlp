@@ -133,7 +133,7 @@ the correlations to get a sense of how much contamination bias might affect esti
 
 {phang2}{cmd:. corr tauhat_? M_??}{p_end}
 
-{pstd}You can also optionally specify an alternative name for the mata struct which contains store results (see {it:{help multe##mata:Stored mata results}}).
+{pstd}You can also optionally specify an alternative name for the mata struct which contains stored results (see {it:{help multe##mata:Stored mata results}}).
 
 {phang2}{cmd:. multe score treatment, control(school) matasave(matastructname)}{p_end}
 {phang2}{cmd:. mata mata desc}{p_end}
