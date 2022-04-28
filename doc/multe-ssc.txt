@@ -1,0 +1,9 @@
+Name: multe
+Version: 0.2.3
+Depends: Stata 14.1 or later
+Author: [Paul Goldsmith-Pinkham, Peter Hull, Michal Kolesár]
+Support: [email]
+Title: Multiple Treatment Effects regression with saturated group control
+Description:
+
+Given a multi-valued treatment, a saturated group variable (or a varlist which will be used to create a single, saturated group variable) within which treatment is as-good-as-randomly assigned, and a dependent variable, multe computes equal-weighted (ATE), variance-weighted, efficiently-weighted treatment effects estimates and contamination bias decomposition as in Goldsmith-Pinkham et al. (2022).

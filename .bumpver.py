@@ -31,6 +31,7 @@ config_files = [
     ('multe.pkg', 'd Distribution-Date: {date:%Y%m%d}'),
     ('stata.toc', 'v {major}.{minor}.{patch}'),
     ('doc/multe.sthlp', 'version {major}.{minor}.{patch} {date:%d%b%Y}'),
+    ('doc/multe-ssc.txt', 'Version: {major}.{minor}.{patch}'),
     ('src/ado/multe.ado', 'version {major}.{minor}.{patch} {date:%d%b%Y}')
 ]
 
