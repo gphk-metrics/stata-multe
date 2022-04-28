@@ -162,7 +162,7 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     }
 
     // Compute vcov matrices
-    // NOTE: Var(X) = Var(psi)/n. That's why po_vcov has n^2 in the denominator and not n. 
+    // NOTE: Var(beta) = Var(psi)/n. That's why po_vcov has n^2 in the denominator and not n. 
     psi_pom_tl = psi_pom :- (colsum(psi_pom) :/ n)
     psi_orm_tl = psi_orm :- (colsum(psi_orm) :/ n)
     po_vcov    = (psi_pom_tl' * psi_pom_tl) / (n^2)
