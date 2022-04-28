@@ -132,8 +132,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
         psi_or = ((psi_alphak - psi_alpha0) * Wmean')
         se_or[j - 1, 1] = sqrt(variance(psi_or) * (n - 1) / n^2)
         se_po[j - 1, 1] = sqrt(variance(psi_or + ((Wm :-  Wmean) * (alphak - alpha0))) * (n - 1) / n^2)
-        psi_orm[.,j] = psi_or * sqrt((n - 1) / n^2)
-        psi_pom[.,j] = (psi_or + ((Wm :-  Wmean) * (alphak - alpha0))) * sqrt((n - 1) / n^2)
+        psi_orm[.,j] = psi_or 
+        psi_pom[.,j] = (psi_or + ((Wm :-  Wmean) * (alphak - alpha0)))
 
         // One treatment at a time
         s               = (X0 :| Xm[., j])
@@ -156,17 +156,17 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
                   Xt[., 1] :* ts[., 1] - Xt[., j] :* ts[., j] + rowsum(Xt :* (sk - s0))) / mean(lam)
         se_po[j-1, 3] = sqrt(variance(psi_po)*(n-1)/n^2)
         se_or[j-1, 3] = sqrt(variance(psi_or)*(n-1)/n^2)
-        psi_pom[., j+(k*2)] = psi_po*sqrt((n-1)/n^2)
-        psi_orm[., j+(k*2)] = psi_or*sqrt((n-1)/n^2)
+        psi_pom[., j+(k*2)] = psi_po
+        psi_orm[., j+(k*2)] = psi_or
 
     }
 
     // Compute vcov matrices
-    // TODO: xx confirm that the variance formula is correct
+    // NOTE: Var(X) = Var(psi)/n. That's why po_vcov has n^2 in the denominator and not n. 
     psi_pom_tl = psi_pom :- (colsum(psi_pom) :/ n)
     psi_orm_tl = psi_orm :- (colsum(psi_orm) :/ n)
-    po_vcov    = (psi_pom_tl' * psi_pom_tl) / n
-    or_vcov    = (psi_orm_tl' * psi_orm_tl) / n
+    po_vcov    = (psi_pom_tl' * psi_pom_tl) / (n^2)
+    or_vcov    = (psi_orm_tl' * psi_orm_tl) / (n^2)
 
     for(j=2; j<=k; j++) {
         po_vcov[j+k, j+k] = var_po_onem[j,1]
