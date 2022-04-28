@@ -7,7 +7,13 @@ capture program drop multe_replicate_tests
 program multe_replicate_tests
     syntax, [Verbose]
     if "`verbose'" != "" local noisily noisily
-    qui multe_replicate_load
+    cap findfile example_star.dta
+    if ( _rc ) {
+        qui multe_replicate_load
+    }
+    else {
+        use `"`r(fn) '"', clear
+    }
     cap `noisily' multe score treatment, control(school)
     if ( _rc != 0 ) {
         disp "(multe test fail): multe run on STAR data failed with _rc = `rc1'"
@@ -16,7 +22,7 @@ program multe_replicate_tests
     else {
         disp "(multe test success): multe ran successfully on STAR data"
     }
-	* output, treatment(treatment) matasave(MulTEResults) ///
+	* output, treatment(treatment) matasave(multe_results) ///
     *     outpath("${star}/Output/tables/test") // pick your outpath
     * mata mata desc
 end

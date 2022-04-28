@@ -21,8 +21,8 @@ args = vars(parser.parse_args())
 # Config
 
 config_token   = "CrossPlatformCompatibilityCookie"
-config_version = "0.2.1"
-config_date = date(2022, 3, 31)
+config_version = "0.2.3"
+config_date = date(2022, 4, 22)
 config_files = [
     ('.bumpver.py', 'config_version = "{major}.{minor}.{patch}"'),
     ('.bumpver.py', f'config_date = date({{date:%Y, {config_token}%m, {config_token}%d}})'),
@@ -31,6 +31,7 @@ config_files = [
     ('multe.pkg', 'd Distribution-Date: {date:%Y%m%d}'),
     ('stata.toc', 'v {major}.{minor}.{patch}'),
     ('doc/multe.sthlp', 'version {major}.{minor}.{patch} {date:%d%b%Y}'),
+    ('doc/multe-ssc.txt', 'Version: {major}.{minor}.{patch}'),
     ('src/ado/multe.ado', 'version {major}.{minor}.{patch} {date:%d%b%Y}')
 ]
 

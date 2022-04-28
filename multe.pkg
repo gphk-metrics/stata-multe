@@ -1,19 +1,37 @@
-v 0.2.1
+v 0.2.3
 d
-d 'MULTE': Multiple Treatment Effects regression
+d 'MULTE': Multiple Treatment Effects regression with saturated group control
+d
+d Given a multi-valued treatment, a saturated group variable (or a
+d varlist which will be used to create a single, saturated group variable)
+d within which treatment is as-good-as-randomly assigned, and a dependent
+d variable, multe computes equal-weighted (ATE), variance-weighted,
+d efficiently-weighted treatment effects estimates and contamination bias
+d decomposition as in Goldsmith-Pinkham et al. (2022).
 d
 d KW: multiple
 d KW: treatment
 d KW: effects
-d KW: xx
+d KW: Goldsmith-Pinkham
+d KW: Hull
+d KW: Kolesár
 d
 d Requires: Stata version 14.1
 d
-d Distribution-Date: 20220331
+d Distribution-Date: 20220422
+d
+d Author: Paul Goldsmith-Pinkham
+d Support: email [email]
+d
+d Author: Peter Hull
+d Support: email [email]
+d
+d Author: Michal Kolesár
+d Support: email [email]
 d
 f build/lmulte.mlib
 f src/ado/multe.ado
-f src/ado/multe_p.ado
 f doc/multe.sthlp
 f src/mata/multe.mata
 f src/mata/multe_helpers.mata
+f test/example_star.dta

@@ -1,4 +1,4 @@
-*! version 0.2.1 31Mar2022
+*! version 0.2.3 22Apr2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com>
@@ -38,7 +38,7 @@ program multe, eclass
     marksample touse, strok
 
     * Copy to mata for mata fun
-    if "`matasave'" == "" local results MulTEResults
+    if "`matasave'" == "" local results multe_results
     else local results: copy local matasave
 
     * Check each control strata has all treatment levels
@@ -112,11 +112,12 @@ program multe, eclass
     ereturn local cmdline: copy local cmdline
     ereturn local depvar  = "`depvar'"
     ereturn local control = "`control'"
-    ereturn local predict = "multe_p"
     ereturn local mata    = "`results'"
 
     ereturn matrix estimates     = `estmatrix'
     ereturn matrix decomposition = `decompmatrix'
+
+    mata `results'.decomposition.print()
 end
 
 capture program drop Replay
@@ -129,6 +130,7 @@ end
 capture program drop Display
 program Display, eclass
     syntax namelist(max = 1), [vce(str) touse(str) repost *]
+    mata printf("\nTreatment Effect Estimates\n")
     if "`post'" == "" local post post
     FreeMatrix b V
     mata `namelist'.estimates.post("`b'", "`V'", "`vce'")
@@ -144,8 +146,7 @@ program Display, eclass
     else ereturn local vcetype ""
     ereturn local vce `vce'
 
-    _coef_table, noempty noomitted `options'
-    disp as txt "({bf:warning:} off-diagonal entries of Vcov matrix hard-coded as 0)"
+    _coef_table, noempty `options'
     //     level(95)
     //     bmatrix(`b')      // e(b)
     //     vmatrix(`V')      // e(V)

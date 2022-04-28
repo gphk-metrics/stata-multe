@@ -27,6 +27,9 @@ class MulTE_Estimates
     string scalar Tvar
     string scalar Yvar
 
+    real matrix po_vcov
+    real matrix or_vcov
+
     void new()
     void print()
     void save()
@@ -74,6 +77,7 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     real matrix est, estk, se_or, se_po, se, psimin, psimax
     real matrix alphak, psi_alphak, psi_or, psi_po
     real matrix delta_kl, delta_pr, gammam
+    real matrix psi_pom, psi_orm, var_po_onem, var_or_onem, psi_pom_tl, po_vcov, psi_orm_tl, or_vcov
     real vector s, Xdot, eps, sk, ghelper, gi, gd, di
 
     // -----------------------------------------------------------------
@@ -86,11 +90,11 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     xlevels = uniqrows(X)
     k       = length(xlevels)
     kw      = cols(Wm)
-    X0      = (X :== xlevels[1])
+    Xm      = J(n, k, 0)
     for (j = 1; j <= k; j++) {
-        _editvalue(X, xlevels[j], j)
+        Xm[., j] = (X :== xlevels[j])
     }
-    Xm      = designmatrix(X)
+    X0      = Xm[., 1]
     alpha0  = multe_helper_ols(select(Y, X0), select(Wm, X0))
 
     psi_alpha0  = (X0 :* Wm :* (Y - Wm * alpha0)) * qrinv(cross(X0 :* Wm, Wm)/n)
@@ -116,6 +120,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     // TE estimates
     // -----------------------------------------------------------------
 
+    var_po_onem = var_or_onem = J(k, 1, 0)
+    psi_pom = psi_orm = J(n, k*3, 0)
     Wmean = mean(Wm)
     for(j = 2; j <= k; j++) {
         alphak  = multe_helper_ols(select(Y, Xm[., j]), select(Wm, Xm[., j]))
@@ -126,6 +132,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
         psi_or = ((psi_alphak - psi_alpha0) * Wmean')
         se_or[j - 1, 1] = sqrt(variance(psi_or) * (n - 1) / n^2)
         se_po[j - 1, 1] = sqrt(variance(psi_or + ((Wm :-  Wmean) * (alphak - alpha0))) * (n - 1) / n^2)
+        psi_orm[.,j] = psi_or 
+        psi_pom[.,j] = (psi_or + ((Wm :-  Wmean) * (alphak - alpha0)))
 
         // One treatment at a time
         s               = (X0 :| Xm[., j])
@@ -137,6 +145,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
         eps = select(Xm[., j], s) :* (select(Y, s) - select(Wm, s) * alphak) +
               select(X0, s) :* (select(Y, s) - select(Wm, s) * alpha0)
         se_or[j - 1, 2] = sqrt(sum((eps:^2) :* (Xdot:^2))/sum(Xdot:^2)^2)
+        var_po_onem[j, 1] = sum((rk.residuals:^2) :* (Xdot:^2)) / sum(Xdot:^2):^2
+        var_or_onem[j, 1] = sum((eps:^2) :* (Xdot:^2)) / sum(Xdot:^2)^2
 
         // common weights
         psi_or = lam :* (Xm[., j] :* (Y - Wm * alphak) :/ ps[., j] -
@@ -146,7 +156,25 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
                   Xt[., 1] :* ts[., 1] - Xt[., j] :* ts[., j] + rowsum(Xt :* (sk - s0))) / mean(lam)
         se_po[j-1, 3] = sqrt(variance(psi_po)*(n-1)/n^2)
         se_or[j-1, 3] = sqrt(variance(psi_or)*(n-1)/n^2)
+        psi_pom[., j+(k*2)] = psi_po
+        psi_orm[., j+(k*2)] = psi_or
+
     }
+
+    // Compute vcov matrices
+    // NOTE: Var(beta) = Var(psi)/n. That's why po_vcov has n^2 in the denominator and not n. 
+    psi_pom_tl = psi_pom :- (colsum(psi_pom) :/ n)
+    psi_orm_tl = psi_orm :- (colsum(psi_orm) :/ n)
+    po_vcov    = (psi_pom_tl' * psi_pom_tl) / (n^2)
+    or_vcov    = (psi_orm_tl' * psi_orm_tl) / (n^2)
+
+    for(j=2; j<=k; j++) {
+        po_vcov[j+k, j+k] = var_po_onem[j,1]
+        or_vcov[j+k, j+k] = var_or_onem[j,1]
+    }
+
+    po_vcov = blockdiag(po_vcov[|1,1 \ k, k|], blockdiag(po_vcov[|k+1, k+1 \ 2*k, 2*k|], po_vcov[|2*k+1, 2*k+1 \ 3*k, 3*k|]))
+    or_vcov = blockdiag(or_vcov[|1,1 \ k, k|], blockdiag(or_vcov[|k+1, k+1 \ 2*k, 2*k|], or_vcov[|2*k+1, 2*k+1 \ 3*k, 3*k|]))
 
     Tlab = st_varvaluelabel(Tvar)
     results.estimates.n     = n
@@ -158,8 +186,8 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     results.estimates.Tlabels = Tlab == ""? strofreal(xlevels): st_vlmap(Tlab, xlevels)
     results.estimates.Tvar    = Tvar
     results.estimates.Yvar    = Yvar
-
-// TODO: xx decide whether to make decomposition a separate function
+    results.estimates.po_vcov = po_vcov
+    results.estimates.or_vcov = or_vcov
 
     // -----------------------------------------------------------------
     // Decomposition (not run)
@@ -259,7 +287,7 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     results.decomposition.Tvar     = Tvar
     results.decomposition.Yvar     = Yvar
     results.decomposition.delta_pr = delta_pr
-    results.decomposition.gammam   = gammam  
+    results.decomposition.gammam   = gammam
     results.decomposition.tauhat_names = tauhat_names
     results.decomposition.lambda_names = lambda_names
 
@@ -304,17 +332,17 @@ void function MulTE_Estimates::post(string scalar b, string scalar V,| string sc
     eqnames  = rowshape(J(1, rows(best), colnames), 1)'
 
     if ( vce == "oracle" ) {
-        sest = J(1, cols(se_or), 0) \ se_or
+        sest = or_vcov
     }
     else {
-        sest = J(1, cols(se_po), 0) \ se_po
+        sest = po_vcov
     }
 
     st_matrix(b, rowshape(best', 1))
     st_matrixcolstripe(b, (eqnames, rownames))
     st_matrixrowstripe(b, ("", Yvar))
 
-    st_matrix(V, diag(rowshape(sest', 1):^2))
+    st_matrix(V, sest)
     st_matrixcolstripe(V, (eqnames, rownames))
     st_matrixrowstripe(V, (eqnames, rownames))
 }
@@ -376,7 +404,7 @@ void function MulTE_Estimates::print(| real scalar digits)
 
 void function MulTE_Decomposition::new()
 {
-    colnames = ("beta", "own", "cont bias", "minbias", "maxbias")'
+    colnames = ("Coef", "Own Effect", "Bias", "Min Bias", "Max Bias")'
 }
 
 void function MulTE_Decomposition::save(string scalar outmatrix)
@@ -390,8 +418,69 @@ void function MulTE_Decomposition::save(string scalar outmatrix)
     st_matrixrowstripe(outmatrix, (J(2 * rows(est), 1, ""), rownames))
 }
 
-void function MulTE_Decomposition::print(| real scalar digits)
+void function MulTE_Decomposition::print(| real scalar minmax, real scalar digits)
 {
+    real scalar i, j, kcolprint
+    real vector lengths
+    string scalar colsep
+    string matrix fmt_res, fmt_est, fmt_se
+    string vector rownames, formats, formats2
+
+    rownames = Tlabels[2::length(Tvalues)], J(rows(est), 1, "")
+    rownames = rowshape(rownames, rows(est) * 2)
+
+    if ( args() < 1 ) minmax = 0
+    if ( args() < 2 ) digits = 6
+
+    fmt_est = J(rows(est), cols(est), "")
+    fmt_se  = J(rows(est), cols(est), "")
+
+    for (i = 1; i <= rows(est); i++) {
+        for (j = 1; j <= cols(est); j++) {
+            fmt_est[i, j] = strtrim(sprintf("%21." + strofreal(digits) + "f", est[i, j]))
+            fmt_se[i, j]  = "(" + strtrim(sprintf("%21." + strofreal(digits) + "f", se[i, j])) + ")"
+        }
+    }
+
+    fmt_res  = rowshape((fmt_est, fmt_se), rows(est) * 2)
+    lengths  = max((strlen(rownames) \ strlen(Tvar))), colmax(strlen(colnames' \ fmt_res))
+    lengths  = lengths :+ 3
+    formats  = " %" :+ strofreal(lengths) :+ "s"
+    formats2 = "-%" :+ strofreal(lengths) :+ "s"
+
+    colsep    = ""
+    kcolprint = minmax? length(colnames): (length(colnames) - 2)
+    printf("\nContamination Bias Decomposition\n")
+    printf("-%s\n", "-" * (sum(lengths[1::(kcolprint+1)]) + (strlen(colsep) + 1) * (kcolprint + 1) - 1))
+    printf(colsep)
+
+    printf(formats[1], Tvar)
+    for (j = 1; j <= kcolprint; j++) {
+        printf(colsep)
+        printf(formats[j + 1], colnames[j])
+    }
+    // printf("|\n")
+    printf("\n")
+
+    for (j = 1; j <= (kcolprint + 1); j++) {
+        printf(colsep)
+        printf(formats2[j], "-" * lengths[j])
+    }
+    // printf("|\n")
+    printf("\n")
+
+    for (i = 1; i <= rows(fmt_res); i++) {
+        printf(colsep)
+        printf(formats[1], rownames[i])
+        for (j = 1; j <= kcolprint; j++) {
+            printf(colsep)
+            printf(formats[j + 1], fmt_res[i, j])
+        }
+        // printf("|\n")
+        printf("\n")
+    }
+    printf("-%s\n", "-" * (sum(lengths[1::(kcolprint+1)]) + (strlen(colsep) + 1) * (kcolprint + 1) - 1))
+    printf("SE in parentheses; bias estimates stored in e(decomposition).\n")
 }
 
 real matrix function MulTE_Decomposition::lambda(real matrix Wm)
