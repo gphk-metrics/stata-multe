@@ -119,7 +119,7 @@ would generate them with custom names.
 
 {title:Example 2: Project STAR}
 
-{pstd}The data for this example can be downloaded with the {cmd:multe} package by specifying the option {cmd:all} (e.g. {it:ssc install multe, all}) or from our online repository {browse "https://raw.githubusercontent.com/gphk-metrics/stata-multe/ab353845e9cc4d3f30563c345342daff2ee1dec8/test/example_star.dta":here}.
+{pstd}The data for this example can be downloaded with the {cmd:multe} package by specifying the option {cmd:all} (i.e. {it:ssc install multe, all}).
 
 {phang2}{cmd:. use example_star.dta, clear                                         }{p_end}
 {phang2}{cmd:. multe score treatment, control(school)                              }{p_end}
