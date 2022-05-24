@@ -3,7 +3,7 @@ MulTE
 
 Multiple Treatment Effects regression
 
-`version 0.2.4 16May2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
+`version 0.3.0 24May2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
 
 ### Installation
 
@@ -49,10 +49,14 @@ gen W = mod(_n, 10)
 gen Y = T + runiform()
 multe Y T, control(W)
 ereturn list
-mata `e(mata)'.decomposition.print(0)
-mata `e(mata)'.decomposition.print(1)
+
+* Use cached results to compute decomposition, lambda, tau
 multe, vce(oracle)
-multe Y T, control(W) gen(lambda tau)
-multe Y T, control(W) gen(lambda(awesomeName) tau(coolerName))
+multe, decomposition
+multe, decomposition minmax
+multe, gen(lambda tau)
+
+* Compute decomposition, lambda, tau from the onset
+multe Y T, control(W) decomp gen(lambda(awesomeName) tau(coolerName))
 desc, full
 ```

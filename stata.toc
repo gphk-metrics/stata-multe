@@ -1,2 +1,2 @@
-v 0.2.4
+v 0.3.0
 p 'MULTE': Multiple Treatment Effects Regression

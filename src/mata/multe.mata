@@ -1,21 +1,33 @@
 cap mata mata drop MulTE()
 cap mata mata drop MulTE_Estimates()
 cap mata mata drop MulTE_Decomposition()
-cap mata mata drop MulTE_Results()
 
 mata
 // Yvar  = "`depvar'"
 // Tvar  = "`treatment'"
 // touse = "`touse'"
 
-struct MulTE_Results
+class MulTE
 {
     class MulTE_Estimates scalar estimates
     class MulTE_Decomposition scalar decomposition
+
+    real scalar cache
+    real vector Y
+    real vector xlevels
+    real matrix Xm
+    real matrix Wm
+
+    void new()
+    void cache_load()
+    void cache_drop()
+    void estimates()
+    void decomposition()
 }
 
 class MulTE_Estimates
 {
+    real scalar run
     real scalar n
     real scalar k
     real matrix est
@@ -38,6 +50,7 @@ class MulTE_Estimates
 
 class MulTE_Decomposition
 {
+    real scalar run
     real scalar n
     real scalar k
     real matrix est
@@ -61,46 +74,44 @@ class MulTE_Decomposition
     void save()
 }
 
-struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real matrix Wm, string scalar touse)
+// ----------------------------------------------------------------- //
+//                           Main function                           //
+// ----------------------------------------------------------------- //
+
+void function MulTE::new()
+{
+    cache = 0
+}
+
+void MulTE::estimates(string scalar Yvar, string scalar Tvar, string scalar Wvar, string scalar touse)
 {
     // class MulTE_RunningTimer scalar running_timer
     // class MulTE_LoopTimer scalar loop_timer
-    struct MulTE_Results scalar results
-    struct multe_helper_results scalar rk, ri, rd, rddX
-
-    string vector lambda_names, tauhat_names
+    // struct MulTE_Results scalar results
+    struct multe_helper_results scalar rk
     string scalar Tlab
 
-    real scalar i, l, j, n, k, kw, kwx, j1, j2
-    real vector Y, X
-    real vector xlevels, X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean
+    real scalar j, n, k
+    real vector X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean
     real vector Y_s, X0_s
     real matrix Xm_s, Wm_s
-    real matrix Xm, psi_alpha0, ps, Xt, WmXm
-    real matrix gamma, psi_gamma, deltak, psi_deltak, ddX, M, psi
-    real matrix est, estk, se_or, se_po, se, psimin, psimax
+    real matrix psi_alpha0, ps, Xt
+    real matrix est, se_or, se_po
     real matrix alphak, psi_alphak, psi_or, psi_po
-    real matrix delta_kl, delta_pr, gammam
     real matrix psi_pom, psi_orm, var_po_onem, var_or_onem, psi_pom_tl, po_vcov, psi_orm_tl, or_vcov
-    real vector s, Xdot, eps, sk, ghelper, gi, gd, di
+    real vector s, Xdot, eps, sk
+
+    if ( this.estimates.run ) return
 
     // -----------------------------------------------------------------
     // Setup
     // -----------------------------------------------------------------
 
-    Y       = st_data(., Yvar, touse)
-    X       = st_data(., Tvar, touse)
-    n       = rows(Y)
-    xlevels = uniqrows(X)
-    k       = length(xlevels)
-    kw      = cols(Wm)
-    Xm      = J(n, k, 0)
-
-    for (j = 1; j <= k; j++) {
-        Xm[., j] = (X :== xlevels[j])
-    }
-    X0      = Xm[., 1]
-    alpha0  = multe_helper_ols(select(Y, X0), select(Wm, X0))
+    cache_load(Yvar, Tvar, Wvar, touse)
+    n      = rows(Y)
+    k      = cols(Xm)
+    X0     = Xm[., 1]
+    alpha0 = multe_helper_ols(select(Y, X0), select(Wm, X0))
 
     psi_alpha0  = (X0 :* Wm :* (Y - Wm * alpha0)) * qrinv(cross(X0 :* Wm, Wm)/n)
     est = se_or = se_po = J(k - 1, 3, .)
@@ -184,21 +195,66 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     or_vcov = blockdiag(or_vcov[|1,1 \ k, k|], blockdiag(or_vcov[|k+1, k+1 \ 2*k, 2*k|], or_vcov[|2*k+1, 2*k+1 \ 3*k, 3*k|]))
 
     Tlab = st_varvaluelabel(Tvar)
-    results.estimates.n     = n
-    results.estimates.k     = k
-    results.estimates.est   = est
-    results.estimates.se_po = se_po
-    results.estimates.se_or = se_or
-    results.estimates.Tvalues = xlevels
-    results.estimates.Tlabels = Tlab == ""? strofreal(xlevels): st_vlmap(Tlab, xlevels)
-    results.estimates.Tvar    = Tvar
-    results.estimates.Yvar    = Yvar
-    results.estimates.po_vcov = po_vcov
-    results.estimates.or_vcov = or_vcov
+    this.estimates.n        = n
+    this.estimates.k        = k
+    this.estimates.est      = est
+    this.estimates.se_po    = se_po
+    this.estimates.se_or    = se_or
+    this.estimates.Tvalues  = xlevels
+    this.estimates.Tlabels  = Tlab == ""? strofreal(xlevels): st_vlmap(Tlab, xlevels)
+    this.estimates.Tvar     = Tvar
+    this.estimates.Yvar     = Yvar
+    this.estimates.po_vcov  = po_vcov
+    this.estimates.or_vcov  = or_vcov
+    this.estimates.run      = 1
+}
 
-    // -----------------------------------------------------------------
-    // Decomposition (not run)
-    // -----------------------------------------------------------------
+void function MulTE::cache_load(string scalar Yvar, string scalar Tvar, string scalar Wvar, string scalar touse)
+{
+    real scalar j
+    real vector X
+
+    if ( cache ) return
+
+    Wm = designmatrix(st_data(., Wvar, touse))
+    Y  = st_data(., Yvar, touse)
+    X  = st_data(., Tvar, touse)
+    xlevels = uniqrows(X)
+    Xm = J(rows(Y), length(xlevels), 0)
+    for (j = 1; j <= length(xlevels); j++) {
+        Xm[., j] = (X :== xlevels[j])
+    }
+
+    cache = 1
+}
+
+void function MulTE::cache_drop()
+{
+    Y       = .
+    Xm      = .
+    Wm      = .
+    xlevels = .
+    cache   = 0
+}
+
+void function MulTE::decomposition(string scalar Yvar, string scalar Tvar, string scalar Wvar, string scalar touse)
+{
+    struct multe_helper_results scalar ri, rd, rddX
+    string vector lambda_names, tauhat_names
+
+    real scalar i, l, j, n, k, kw, kwx, j1, j2
+    real matrix WmXm, gamma, psi_gamma, deltak, psi_deltak, ddX, M, psi
+    real matrix est, estk, se, psimin, psimax
+    real matrix delta_kl, delta_pr, gammam
+    real matrix ggi, ggd, psigi, psigd
+    real vector ghelper, gi, gd, di
+
+    if ( this.decomposition.run ) return
+
+    cache_load(Yvar, Tvar, Wvar, touse)
+    n  = rows(Y)
+    k  = cols(Xm)
+    kw = cols(Wm)
 
     // From R> matrix of controls Wm including intercept; X must be a
     // From R> factor, first level to be dropped
@@ -309,25 +365,29 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     delta_pr = delta_kl :/ (mean(Wm)')
     gammam   = rowshape(gamma, k-1)
 
-    results.decomposition.n   = n
-    results.decomposition.k   = k
-    results.decomposition.est = est
-    results.decomposition.se  = se
-    results.decomposition.tmp = rowshape((est, se), 2 * rows(est))
-    results.decomposition.Tvalues  = xlevels
-    results.decomposition.Tlabels  = results.estimates.Tlabels
-    results.decomposition.Tvar     = Tvar
-    results.decomposition.Yvar     = Yvar
-    results.decomposition.delta_pr = delta_pr
-    results.decomposition.gammam   = gammam
-    results.decomposition.tauhat_names = tauhat_names
-    results.decomposition.lambda_names = lambda_names
-
-    return(results)
+    this.decomposition.n            = n
+    this.decomposition.k            = k
+    this.decomposition.est          = est
+    this.decomposition.se           = se
+    this.decomposition.tmp          = rowshape((est, se), 2 * rows(est))
+    this.decomposition.Tvalues      = this.estimates.Tvalues
+    this.decomposition.Tlabels      = this.estimates.Tlabels
+    this.decomposition.Tvar         = this.estimates.Tvar
+    this.decomposition.Yvar         = this.estimates.Yvar
+    this.decomposition.delta_pr     = delta_pr
+    this.decomposition.gammam       = gammam
+    this.decomposition.tauhat_names = tauhat_names
+    this.decomposition.lambda_names = lambda_names
+    this.decomposition.run          = 1
 }
+
+// ----------------------------------------------------------------- //
+//                         Estimates Helpers                         //
+// ----------------------------------------------------------------- //
 
 void function MulTE_Estimates::new()
 {
+    run = 0
     colnames = ("ATE", "1-at-a-time", "common weights")'
 }
 
@@ -433,15 +493,21 @@ void function MulTE_Estimates::print(| real scalar digits)
     }
 }
 
+// ----------------------------------------------------------------- //
+//                       Decomposition Helpers                       //
+// ----------------------------------------------------------------- //
 
 void function MulTE_Decomposition::new()
 {
+    run= 0
     colnames = ("Coef", "Own Effect", "Bias", "Min Bias", "Max Bias")'
 }
 
 void function MulTE_Decomposition::save(string scalar outmatrix)
 {
     string vector rownames
+
+    if ( run == 0 ) return
     rownames = Tlabels[2::length(Tvalues)], J(rows(est), 1, "se")
     rownames = rowshape(rownames, rows(est) * 2)
 
@@ -458,6 +524,7 @@ void function MulTE_Decomposition::print(| real scalar minmax, real scalar digit
     string matrix fmt_res, fmt_est, fmt_se
     string vector rownames, formats, formats2
 
+    if ( run == 0 ) return
     rownames = Tlabels[2::length(Tvalues)], J(rows(est), 1, "")
     rownames = rowshape(rownames, rows(est) * 2)
 

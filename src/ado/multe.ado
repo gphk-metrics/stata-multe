@@ -1,4 +1,4 @@
-*! version 0.2.4 16May2022
+*! version 0.3.0 24May2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com>
@@ -20,7 +20,14 @@ program multe, eclass
         vce(str)                               /// SEs to be displayed
         GENerate(str)                          /// save lambdas/taus
         MATAsave(str)                          /// Save resulting mata object
+        DECOMPosition                          /// Compute and display decomposition
+        minmax                                 /// Print full decomposition table
     ]
+
+    local decomp1 = ("`decomposition'" != "")
+    local decomp2 = (`"`generate'"'    != "")
+    local decomp3 = (`"`minmax'"'      != "")
+    local decomp  = `decomp1' | `decomp2'
 
     local vce `vce'
     if !inlist("`vce'", "", "oracle") {
@@ -47,10 +54,10 @@ program multe, eclass
     local Tk: list sizeof Tlevels
 
     tempvar W Wtag Ttag Tuniq Tdrop
-    egen long  `W'      = group(`control')
-    egen byte  `Wtag'   = tag(`W') if `touse'
-    egen byte  `Ttag'   = tag(`W' `treatment') if `touse'
-    egen double `Tuniq' = sum(`Ttag') if `touse', by(`W')
+    egen `c(obs_t)' `W'     = group(`control')
+    egen byte       `Wtag'  = tag(`W') if `touse'
+    egen byte       `Ttag'  = tag(`W' `treatment') if `touse'
+    egen double     `Tuniq' = sum(`Ttag') if `touse', by(`W')
     gen byte `Tdrop'    = (`Tuniq' < `Tk') if `touse'
     cap assert `Tuniq' <= `Tk' if `touse'
     if ( _rc ) {
@@ -68,13 +75,47 @@ program multe, eclass
         * exit 498
     }
 
-    mata Wm = designmatrix(st_data(., "`W'", "`touse'"))
-    mata `results' = MulTE("`depvar'", "`treatment'", Wm, "`touse'")
+    qui drop `W'
+    egen `c(obs_t)' `W' = group(`control') if `touse'
+    mata `results' = MulTE()
+    mata `results'.estimates("`depvar'", "`treatment'", "`W'", "`touse'")
 
-    * Save lambda and tauhat, if requested
+    if ( `decomp' ) {
+        mata `results'.decomposition("`depvar'", "`treatment'", "`W'", "`touse'")
+
+        * Save lambda and tauhat, if requested
+        LambdaTau, results(`results') `generate'
+    }
+    mata `results'.cache_drop()
+
+    * Save estimates in r()
+    tempname estmatrix decompmatrix
+    mata `results'.estimates.save("`estmatrix'")
+    mata `results'.decomposition.save("`decompmatrix'")
+
+    * Display standard Stata table; save in e()
+    Display `results', vce(`vce') touse(`touse')
+    mata st_local("cmdline", "multe " + st_local("0bak"))
+    ereturn local cmdline: copy local cmdline
+    ereturn local cmd       = "multe"
+    ereturn local depvar    = "`depvar'"
+    ereturn local treatment = "`treatment'"
+    ereturn local control   = "`control'"
+    ereturn local mata      = "`results'"
+
+    ereturn matrix estimates = `estmatrix'
+    if ( `decomp' ) {
+        ereturn matrix decomposition = `decompmatrix'
+        if ( `decomp1' ) {
+            mata `results'.decomposition.print(`decomp3')
+        }
+    }
+end
+
+capture program drop LambdaTau
+program LambdaTau
+    syntax, results(str) [lambda LAMBDAprefix(str) tau TAUprefix(str)]
     tempname types names
-    local 0, `generate'
-    syntax, [lambda LAMBDAprefix(str) tau TAUprefix(str)]
 
     local savelambda = ("`lambdaprefix'" != "") | ("`lambda'" != "")
     local savetau    = ("`tauprefix'"    != "") | ("`tau'"    != "")
@@ -87,7 +128,7 @@ program multe, eclass
         mata: `names' = "`lambdaprefix'" :+ `names'
         mata: `types' = J(1, cols(`names'), "`:set type'")
         mata: (void) st_addvar(`types', `names')
-        mata: (void) st_store(., `names', `results'.decomposition.lambda(Wm))
+        mata: (void) st_store(., `names', `results'.decomposition.lambda(`results'.Wm))
     }
 
     if ( `savetau' ) {
@@ -95,36 +136,42 @@ program multe, eclass
         mata: `names' = "`tauprefix'" :+ `names'
         mata: `types' = J(1, cols(`names'), "`:set type'")
         mata: (void) st_addvar(`types', `names')
-        mata: (void) st_store(., `names', `results'.decomposition.tauhat(Wm))
+        mata: (void) st_store(., `names', `results'.decomposition.tauhat(`results'.Wm))
     }
-
-    mata mata drop Wm
-
-    * Save estimates in r()
-    tempname estmatrix decompmatrix
-    mata `results'.estimates.save("`estmatrix'")
-    mata `results'.decomposition.save("`decompmatrix'")
-
-    * Display standard Stata table; save in e()
-    Display `results', vce(`vce') touse(`touse')
-    mata st_local("cmdline", "multe " + st_local("0bak"))
-    ereturn local cmd     = "multe"
-    ereturn local cmdline: copy local cmdline
-    ereturn local depvar  = "`depvar'"
-    ereturn local control = "`control'"
-    ereturn local mata    = "`results'"
-
-    ereturn matrix estimates     = `estmatrix'
-    ereturn matrix decomposition = `decompmatrix'
-
-    mata `results'.decomposition.print()
 end
 
 capture program drop Replay
 program Replay, eclass
-    syntax, [vce(str) *]
+    syntax, [vce(str) GENerate(str) DECOMPosition minmax *]
+    local decomp1 = ("`decomposition'" != "")
+    local decomp2 = (`"`generate'"'    != "")
+    local decomp3 = (`"`minmax'"'      != "")
+    local decomp  = `decomp1' | `decomp2'
     if (`"`e(cmd)'"' != "multe") error 301
-    Display `e(mata)', vce(`vce') repost `options'
+    if ( `decomp' ) {
+        Decomposition, `generate'
+        if ( `decomp1' ) {
+            mata `e(mata)'.decomposition.print(`decomp3')
+        }
+        tempname decompmatrix
+        mata `e(mata)'.decomposition.save("`decompmatrix'")
+        ereturn matrix decomposition = `decompmatrix'
+    }
+    else {
+        Display `e(mata)', vce(`vce') repost `options'
+    }
+end
+
+capture program drop Decomposition
+program Decomposition
+    syntax, [*]
+    tempvar touse W
+    gen byte `touse' = e(sample)
+    egen `c(obs_t)' `W' = group(`e(control)') if `touse'
+    mata `e(mata)'.cache_load("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'")
+    mata `e(mata)'.decomposition("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'")
+    LambdaTau, results(`e(mata)') `options'
+    mata `e(mata)'.cache_drop()
 end
 
 capture program drop Display
