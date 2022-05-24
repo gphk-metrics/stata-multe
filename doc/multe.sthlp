@@ -119,12 +119,14 @@ would generate them with custom names. The user can generate these interactively
 {phang2}{cmd:. ereturn list                                                  }{p_end}
 
 {pstd}Use cached results to compute decomposition, lambda, tau{p_end}
+
 {phang2}{cmd:. multe, vce(oracle)         }{p_end}
 {phang2}{cmd:. multe, decomposition       }{p_end}
 {phang2}{cmd:. multe, decomposition minmax}{p_end}
 {phang2}{cmd:. multe, gen(lambda tau)     }{p_end}
 
 {pstd}Compute decomposition, lambda, tau from the onset{p_end}
+
 {phang2}{cmd:. multe Y T, control(W) decomp gen(lambda(awesomeName) tau(coolerName))}{p_end}
 {phang2}{cmd:. desc, full                                                           }{p_end}
 
