@@ -41,7 +41,8 @@ as in Goldsmith-Pinkham et al. (2022).
 {p_end}
 {synopt :{opt decomp:osition}} Optionally compute contamination bias decomposition. (Can be computed after main function run.)
 {p_end}
-{synopt :{opt gen:erate(options)}} Optionally save tau (saturated group-specific treatment effects) and/or lambda (implicit ATE regression weights); computes bias decomposition internally. (Can be computed after main function run.) See {it:{help multe##gen_options:generate options}}.
+{synopt :{opt gen:erate(options)}} Optionally save tau (saturated group-specific treatment effects) and/or lambda (implicit ATE regression weights); computes bias decomposition
+internally. (Can be computed after main function run.) See {it:{help multe##gen_options:generate options}}.
 {p_end}
 
 {marker gen_options}{...}
@@ -91,7 +92,7 @@ propensity score for each treatment level as known.
 {phang}{opth mata:save(str)} supplies an alternative name for the mata structure which stores all estimates and variables in mata (default name is "multe_results").
 Note this is in addition to results stored in {cmd:e()}; see {it:{help multe##results:stored results}} below for details.
 
-{phang}{opth decomp:osition} Compute contamination bias decomposition as in Goldsmith-Pinkham et al. (2022). This is computationally intensive and is therefore not computed by default.
+{phang}{opt decomp:osition} computes contamination bias decomposition as in Goldsmith-Pinkham et al. (2022). This is computationally intensive and is therefore not computed by default.
 The user can compute the decomposition interactively using the most recent {cmd:multe} results via {cmd:multe, decomposition}.
 
 {phang}{opt gen:erate(options)} specifies whether to save lambda and/or tau (as defined above) as variables. The user can optionally specify the names of these two sets of variables via the
