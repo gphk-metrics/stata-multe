@@ -85,9 +85,6 @@ void function MulTE::new()
 
 void MulTE::estimates(string scalar Yvar, string scalar Tvar, string scalar Wvar, string scalar touse)
 {
-    // class MulTE_RunningTimer scalar running_timer
-    // class MulTE_LoopTimer scalar loop_timer
-    // struct MulTE_Results scalar results
     struct multe_helper_results scalar rk
     string scalar Tlab
 

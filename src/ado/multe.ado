@@ -1,4 +1,4 @@
-*! version 0.3.0 24May2022
+*! version 0.3.1 31May2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com>
@@ -217,58 +217,4 @@ program FreeMatrix
             c_local `FM' MulTE`FreeCounter'
         }
     }
-end
-
-capture program drop FreeTimer
-program FreeTimer
-    qui {
-        timer list
-        local i = 99
-        while ( (`i' > 0) & ("`r(t`i')'" != "") ) {
-            local --i
-        }
-    }
-    c_local FreeTimer `i'
-end
-
-capture program drop RunningTimer
-program RunningTimer
-    syntax [anything(equalok everything)], [start end]
-    if "`start'" != "" | "${multe_timer}" == "" {
-        local skip = 1
-        FreeTimer
-        global multe_timer: copy local FreeTimer
-        cap timer off   ${multe_timer}
-        cap timer clear ${multe_timer}
-        qui timer on    ${multe_timer}
-
-        FreeTimer
-        global multe_timer_total: copy local FreeTimer
-        cap timer off   ${multe_timer_total}
-        cap timer clear ${multe_timer_total}
-        qui timer on    ${multe_timer_total}
-    }
-    else local skip = 0
-
-    if !(`skip' & `"`anything'"' == "") {
-        qui timer off   ${multe_timer}
-        qui timer list  ${multe_timer}
-        local pretty = trim("`:di %21.1fc r(t${multe_timer})'")
-        local s = cond(substr(`"`anything'"', length(`"`anything'"'), 1) == " ", "", " ")
-        cap timer off   ${multe_timer_total}
-        qui timer list  ${multe_timer_total}
-        qui timer on    ${multe_timer_total}
-        local total = trim("`:di %21.1fc r(t${multe_timer_total})'")
-        disp `"`anything'`s'(`pretty's / `total's)"'
-        qui timer off   ${multe_timer}
-        qui timer clear ${multe_timer}
-        qui timer on    ${multe_timer}
-    }
-
-    if "`end'" != "" {
-        qui timer clear ${multe_timer}
-        cap timer off   ${multe_timer_total}
-        cap timer clear ${multe_timer_total}
-    }
-    else qui timer on ${multe_timer}
 end
