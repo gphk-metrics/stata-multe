@@ -16,10 +16,9 @@
 {title:Syntax}
 
 {pstd}
-Multiple treatment effects regression.
-Given a multi-valued treatment, a saturated group variable (or a {varlist} which will be used to create a single, saturated group variable), and a dependent variable,
-{cmd:multe} computes equal-weighted (ATE), variance-weighted, efficiently-weighted treatment effects estimates and (optionally) contamination bias decomposition
-as in Goldsmith-Pinkham et al. (2022).
+Multiple treatment effects regression. Given a multi-valued treatment, a saturated group variable (or a {varlist} which will be used to create a single, saturated
+group variable), and a dependent variable, {cmd:multe} computes equal-weighted (ATE), variance-weighted, efficiently-weighted treatment effects estimates
+and (optionally) contamination bias decomposition as in Goldsmith-Pinkham et al. (2022).
 
 {p 8 15 2}
 {cmd:multe}
@@ -140,6 +139,7 @@ would generate them with custom names. The user can generate these interactively
 {phang2}{cmd:. ereturn list                          }{p_end}
 {phang2}{cmd:. multe, vce(oracle)                    }{p_end}
 {phang2}{cmd:. multe, gen(lambda(M_) tau(tauhat_))   }{p_end}
+{phang2}{cmd:. multe, decomp                         }{p_end}
 {phang2}{cmd:. desc, full                            }{p_end}
 
 {pstd}After obtaining the implicit regression weights (lambda) and group-specific treatment effects (tau) based on a partially linear model, you can calculate
@@ -150,7 +150,7 @@ the correlations to get a sense of how much contamination bias might affect esti
 {pstd}You can also optionally specify an alternative name for the mata struct which contains stored results (see {it:{help multe##mata:Stored mata results}}).
 
 {phang2}{cmd:. multe score treatment, control(school) matasave(matastructname)}{p_end}
-{phang2}{cmd:. mata mata desc}{p_end}
+{phang2}{cmd:. mata mata desc                                                 }{p_end}
 
 {marker results}{...}
 {title:Stored results}
