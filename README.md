@@ -7,26 +7,20 @@ Multiple Treatment Effects regression
 
 ### Installation
 
-From the command line:
+From Stata
 
-```
-git clone git@github.com:gphk-metrics/stata-multe
-```
-
-(or download the code manually and unzip). From Stata:
-
-```
-cap noi net uninstall multe
-net install multe, from(`c(pwd)'/stata-multe)
-```
-
-(Change `stata-multe` if you download the package to a different
-folder; e.g. `stata-multe-main`.) Note if the repo were public, this
-could be installed directly from Stata:
-
-```
+```stata
 local github "https://raw.githubusercontent.com"
+cap noi net uninstall multe
 net install manyiv, from(`github'/gphk-metrics/stata-multe/main/)
+```
+
+You can also clone or download the code manually, e.g. to
+`stata-multe-main`, and install from a local folder:
+
+```stata
+cap noi net uninstall multe
+net install multe, from(`c(pwd)'/stata-multe-main)
 ```
 
 ### Usage
