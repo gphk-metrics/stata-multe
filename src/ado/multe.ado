@@ -1,7 +1,7 @@
 *! version 0.3.0 24May2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
-*! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com>
+*! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com> and Jerray Chang <jerray@bu.edu>
 
 capture program drop multe
 program multe, eclass
