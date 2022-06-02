@@ -1,21 +1,33 @@
 cap mata mata drop MulTE()
 cap mata mata drop MulTE_Estimates()
 cap mata mata drop MulTE_Decomposition()
-cap mata mata drop MulTE_Results()
 
 mata
 // Yvar  = "`depvar'"
 // Tvar  = "`treatment'"
 // touse = "`touse'"
 
-struct MulTE_Results
+class MulTE
 {
     class MulTE_Estimates scalar estimates
     class MulTE_Decomposition scalar decomposition
+
+    real scalar cache
+    real vector Y
+    real vector xlevels
+    real matrix Xm
+    real matrix Wm
+
+    void new()
+    void cache_load()
+    void cache_drop()
+    void estimates()
+    void decomposition()
 }
 
 class MulTE_Estimates
 {
+    real scalar run
     real scalar n
     real scalar k
     real matrix est
@@ -38,6 +50,7 @@ class MulTE_Estimates
 
 class MulTE_Decomposition
 {
+    real scalar run
     real scalar n
     real scalar k
     real matrix est
@@ -61,45 +74,44 @@ class MulTE_Decomposition
     void save()
 }
 
-struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real matrix Wm, string scalar touse)
-{
-    struct MulTE_Results scalar results
-    struct multe_helper_results scalar rk, ri, rd, rddX
+// ----------------------------------------------------------------- //
+//                           Main function                           //
+// ----------------------------------------------------------------- //
 
-    string vector lambda_names, tauhat_names
+void function MulTE::new()
+{
+    cache = 0
+}
+
+void MulTE::estimates(string scalar Yvar, string scalar Tvar, string scalar Wvar, string scalar touse)
+{
+    struct multe_helper_results scalar rk
     string scalar Tlab
 
-    real scalar i, l, j, n, k, kw, j1, j2
-    real vector Y, X
-    real vector xlevels, X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean
-    real matrix Xm, psi_alpha0, ps, Xt, WmXm
-    real matrix gamma, psi_gamma, deltak, psi_deltak, ddX, M, psi
-    real matrix est, estk, se_or, se_po, se, psimin, psimax
+    real scalar j, n, k
+    real vector X0, alpha0, lam, rcalpha, rcres, ts, s0, Wmean
+    real vector Y_s, X0_s
+    real matrix Xm_s, Wm_s
+    real matrix psi_alpha0, ps, Xt
+    real matrix est, se_or, se_po
     real matrix alphak, psi_alphak, psi_or, psi_po
-    real matrix delta_kl, delta_pr, gammam
     real matrix psi_pom, psi_orm, var_po_onem, var_or_onem, psi_pom_tl, po_vcov, psi_orm_tl, or_vcov
-    real vector s, Xdot, eps, sk, ghelper, gi, gd, di
+    real vector s, Xdot, eps, sk
+
+    if ( this.estimates.run ) return
 
     // -----------------------------------------------------------------
     // Setup
     // -----------------------------------------------------------------
 
-    Y       = st_data(., Yvar, touse)
-    X       = st_data(., Tvar, touse)
-    n       = rows(Y)
-    xlevels = uniqrows(X)
-    k       = length(xlevels)
-    kw      = cols(Wm)
-    Xm      = J(n, k, 0)
-    for (j = 1; j <= k; j++) {
-        Xm[., j] = (X :== xlevels[j])
-    }
-    X0      = Xm[., 1]
-    alpha0  = multe_helper_ols(select(Y, X0), select(Wm, X0))
+    cache_load(Yvar, Tvar, Wvar, touse)
+    n      = rows(Y)
+    k      = cols(Xm)
+    X0     = Xm[., 1]
+    alpha0 = multe_helper_ols(select(Y, X0), select(Wm, X0))
 
     psi_alpha0  = (X0 :* Wm :* (Y - Wm * alpha0)) * qrinv(cross(X0 :* Wm, Wm)/n)
     est = se_or = se_po = J(k - 1, 3, .)
-// TODO: xx why isn't this 2 by k instead of k-2 by 3? think abt it
 
     // common weights
     ps        = Wm * multe_helper_ols(Xm, Wm) // propensity scores
@@ -113,9 +125,6 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     ts = Wm * multe_helper_ols(rcres :* Xm :/ (ps:^2)  :* lam, Wm)
     s0 = Wm * multe_helper_ols(rcres :* X0 :/ ps[., 1] :* (lam:^2) :/ (ps:^2), Wm)
 
-// TODO: xx figure out if selectindex(s) is faster
-// TODO: xx or maybe make subset vars at start of loop
-
     // -----------------------------------------------------------------
     // TE estimates
     // -----------------------------------------------------------------
@@ -123,8 +132,9 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     var_po_onem = var_or_onem = J(k, 1, 0)
     psi_pom = psi_orm = J(n, k*3, 0)
     Wmean = mean(Wm)
+
     for(j = 2; j <= k; j++) {
-        alphak  = multe_helper_ols(select(Y, Xm[., j]), select(Wm, Xm[., j]))
+        alphak = multe_helper_ols(select(Y, Xm[., j]), select(Wm, Xm[., j]))
         psi_alphak = (Xm[.,j] :* (Y - Wm * alphak) :* Wm) * qrinv(cross(Xm[., j] :* Wm, Wm) / n)
 
         // ATE
@@ -132,18 +142,23 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
         psi_or = ((psi_alphak - psi_alpha0) * Wmean')
         se_or[j - 1, 1] = sqrt(variance(psi_or) * (n - 1) / n^2)
         se_po[j - 1, 1] = sqrt(variance(psi_or + ((Wm :-  Wmean) * (alphak - alpha0))) * (n - 1) / n^2)
-        psi_orm[.,j] = psi_or 
+        psi_orm[.,j] = psi_or
         psi_pom[.,j] = (psi_or + ((Wm :-  Wmean) * (alphak - alpha0)))
 
         // One treatment at a time
-        s               = (X0 :| Xm[., j])
-        Xdot            = select(Xm[., j], s) - select(Wm, s) * multe_helper_ols(select(Xm[., j], s), select(Wm, s))
-        rk              = multe_helper_olsr(select(Y, s), (Xdot, select(Wm, s)))
+        s    = selectindex(X0 :| Xm[., j])
+        Xm_s = Xm[s, j]
+        Wm_s = Wm[s, .]
+        X0_s = X0[s]
+        Y_s  = Y[s]
+
+        Xdot            = Xm_s - Wm_s * multe_helper_ols(Xm_s, Wm_s)
+        rk              = multe_helper_olsr(Y_s, (Xdot, Wm_s))
         est[j - 1, 2]   = rk.coefficients[1]
         se_po[j - 1, 2] = sqrt(sum((rk.residuals:^2) :* (Xdot:^2)) / sum(Xdot:^2):^2)
 
-        eps = select(Xm[., j], s) :* (select(Y, s) - select(Wm, s) * alphak) +
-              select(X0, s) :* (select(Y, s) - select(Wm, s) * alpha0)
+        eps = Xm_s :* (Y_s - Wm_s * alphak) +
+              X0_s :* (Y_s - Wm_s * alpha0)
         se_or[j - 1, 2] = sqrt(sum((eps:^2) :* (Xdot:^2))/sum(Xdot:^2)^2)
         var_po_onem[j, 1] = sum((rk.residuals:^2) :* (Xdot:^2)) / sum(Xdot:^2):^2
         var_or_onem[j, 1] = sum((eps:^2) :* (Xdot:^2)) / sum(Xdot:^2)^2
@@ -162,7 +177,7 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     }
 
     // Compute vcov matrices
-    // NOTE: Var(beta) = Var(psi)/n. That's why po_vcov has n^2 in the denominator and not n. 
+    // NOTE: Var(beta) = Var(psi)/n. That's why po_vcov has n^2 in the denominator and not n.
     psi_pom_tl = psi_pom :- (colsum(psi_pom) :/ n)
     psi_orm_tl = psi_orm :- (colsum(psi_orm) :/ n)
     po_vcov    = (psi_pom_tl' * psi_pom_tl) / (n^2)
@@ -177,21 +192,66 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     or_vcov = blockdiag(or_vcov[|1,1 \ k, k|], blockdiag(or_vcov[|k+1, k+1 \ 2*k, 2*k|], or_vcov[|2*k+1, 2*k+1 \ 3*k, 3*k|]))
 
     Tlab = st_varvaluelabel(Tvar)
-    results.estimates.n     = n
-    results.estimates.k     = k
-    results.estimates.est   = est
-    results.estimates.se_po = se_po
-    results.estimates.se_or = se_or
-    results.estimates.Tvalues = xlevels
-    results.estimates.Tlabels = Tlab == ""? strofreal(xlevels): st_vlmap(Tlab, xlevels)
-    results.estimates.Tvar    = Tvar
-    results.estimates.Yvar    = Yvar
-    results.estimates.po_vcov = po_vcov
-    results.estimates.or_vcov = or_vcov
+    this.estimates.n        = n
+    this.estimates.k        = k
+    this.estimates.est      = est
+    this.estimates.se_po    = se_po
+    this.estimates.se_or    = se_or
+    this.estimates.Tvalues  = xlevels
+    this.estimates.Tlabels  = Tlab == ""? strofreal(xlevels): st_vlmap(Tlab, xlevels)
+    this.estimates.Tvar     = Tvar
+    this.estimates.Yvar     = Yvar
+    this.estimates.po_vcov  = po_vcov
+    this.estimates.or_vcov  = or_vcov
+    this.estimates.run      = 1
+}
 
-    // -----------------------------------------------------------------
-    // Decomposition (not run)
-    // -----------------------------------------------------------------
+void function MulTE::cache_load(string scalar Yvar, string scalar Tvar, string scalar Wvar, string scalar touse)
+{
+    real scalar j
+    real vector X
+
+    if ( cache ) return
+
+    Wm = designmatrix(st_data(., Wvar, touse))
+    Y  = st_data(., Yvar, touse)
+    X  = st_data(., Tvar, touse)
+    xlevels = uniqrows(X)
+    Xm = J(rows(Y), length(xlevels), 0)
+    for (j = 1; j <= length(xlevels); j++) {
+        Xm[., j] = (X :== xlevels[j])
+    }
+
+    cache = 1
+}
+
+void function MulTE::cache_drop()
+{
+    Y       = .
+    Xm      = .
+    Wm      = .
+    xlevels = .
+    cache   = 0
+}
+
+void function MulTE::decomposition(string scalar Yvar, string scalar Tvar, string scalar Wvar, string scalar touse)
+{
+    struct multe_helper_results scalar ri, rd, rddX
+    string vector lambda_names, tauhat_names
+
+    real scalar i, l, j, n, k, kw, kwx, j1, j2
+    real matrix WmXm, gamma, psi_gamma, deltak, psi_deltak, ddX, M, psi
+    real matrix est, estk, se, psimin, psimax
+    real matrix delta_kl, delta_pr, gammam
+    real matrix ggi, ggd, psigi, psigd
+    real vector ghelper, gi, gd, di
+
+    if ( this.decomposition.run ) return
+
+    cache_load(Yvar, Tvar, Wvar, touse)
+    n  = rows(Y)
+    k  = cols(Xm)
+    kw = cols(Wm)
 
     // From R> matrix of controls Wm including intercept; X must be a
     // From R> factor, first level to be dropped
@@ -199,26 +259,51 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     // NB> Wm does not have a constant because it contains the full
     // NB> matrix of dummies.
 
+    kwx  = kw + (k - 1) * kw
+    M    = I(k - 1)#J(kw, 1, 1)
     Xm   = Xm[., 2::k]
-    WmXm = J(n, kw + (k - 1) * kw, 0)
+    WmXm = J(n, kwx, 0)
     WmXm[|1, 1 \ n, kw|] = Wm
     for(j = 1; j < k; j++) {
         j1 = kw + (j - 1) * kw + 1
         j2 = kw + (j - 0) * kw
         WmXm[|1, j1 \ n, j2|] = Xm[., j] :* Wm
     }
-    ri = multe_helper_olsr(Y, WmXm) // interactions
 
+    ri = multe_helper_olsr(Y, WmXm)
     gamma = ri.coefficients[|(kw+1) \ cols(WmXm)|]
+    rd = multe_helper_olsr(WmXm[|(1, kw+1) \ (n, cols(WmXm))|], (Xm, Wm))
     psi_gamma = ((ri.residuals :* WmXm) *
                   invsym(cross(WmXm, WmXm)))[|(1, kw+1) \ (n, cols(WmXm))|]
-    rd = multe_helper_olsr(WmXm[|(1, kw+1) \ (n, cols(WmXm))|], (Xm, Wm)) // delta
+
+    // NB: Given Wm and Xm are collections of non-overlapping
+    // indicators, cross(WmXm, WmXm) and subsequent calculations
+    // simplify. In teting, however, this was not necessarily faster.
+    //
+    // WW = colsum(WmXm)
+    // WD = diag(WW)
+    // for(j = 1; j < k; j++) {
+    //     j1 = kw + (j - 1) * kw + 1
+    //     j2 = kw + (j - 0) * kw
+    //     WD[|j1, 1 \ j2, (j2-j1+1)|] = diag(WW[|j1 \ j2|])
+    // }
+    // WD        = invsym(makesymmetric(WD))
+    // WY        = cross(WmXm, Y)
+    // ri_coef   = WD * WY
+    // gamma     = ri_coef[|(kw+1) \ kwx|]
+    // ri_res    = Y - WmXm * ri_coef
+    // psi_gamma = (ri_res :* (WmXm * WD))[|(1, kw+1) \ (n, kwx)|]
+    // rd        = multe_helper_olsr(WmXm[|(1, kw+1) \ (n, kwx)|], (Xm, Wm)) // delta
 
     // Sort columns by size
     ghelper = rowshape(colshape(J(kw, 1, 1::(k-1)), k-1)', kw * (k - 1))
-    gi  = order((ghelper, gamma), (1, 2))
-    gd  = order((ghelper, gamma), (1, -2))
-    est = se = J(k-1, 5, .)
+    gi      = order((ghelper, gamma), (1, 2))
+    gd      = order((ghelper, gamma), (1, -2))
+    est     = se = J(k-1, 5, .)
+    ggi     = gamma[gi] :* M
+    ggd     = gamma[gd] :* M
+    psigi   = psi_gamma[., gi]
+    psigd   = psi_gamma[., gd]
 
     // Standard errors
     for (j = 1; j < k; j++) {
@@ -228,22 +313,23 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
         deltak     = rd.coefficients[j, .]'
         psi_deltak = ddX :* rd.residuals / sum(ddX:^2)
 
-        M    = I(k - 1)#J(kw, 1, 1)
         psi  = psi_deltak * (gamma :* M) + psi_gamma * (deltak :* M)
         estk = gamma' * (deltak :* M)
 
         // Sort delta columns
         di = order((ghelper, deltak), (1, 2))
 
-        psimax = psi_deltak[., di] * (gamma[gi] :* M) + psi_gamma[., gi] * (deltak[di] :* M)
-        psimin = psi_deltak[., di] * (gamma[gd] :* M) + psi_gamma[., gd] * (deltak[di] :* M)
+        psi_deltak = psi_deltak[., di]
+        deltak = deltak[di] :* M
+        psimax = psi_deltak * ggi + psigi * deltak
+        psimin = psi_deltak * ggd + psigd * deltak
 
         est[j,.] = (
             sum(estk),
             estk[j],
             sum(multe_helper_antiselect(estk, j)),
-            sum(gamma[gd]' * multe_helper_antiselect(deltak[di] :* M, j)),
-            sum(gamma[gi]' * multe_helper_antiselect(deltak[di] :* M, j))
+            sum(ggd' * multe_helper_antiselect(deltak, j)),
+            sum(ggi' * multe_helper_antiselect(deltak, j))
         )
 
         se[j,.] = sqrt((
@@ -253,7 +339,6 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
             sum(rowsum(multe_helper_antiselect(psimin, j)):^2),
             sum(rowsum(multe_helper_antiselect(psimax, j)):^2)
         ))
-
     }
 
     // Control-specific TEs and weights
@@ -277,25 +362,29 @@ struct MulTE_Results scalar MulTE(string scalar Yvar, string scalar Tvar, real m
     delta_pr = delta_kl :/ (mean(Wm)')
     gammam   = rowshape(gamma, k-1)
 
-    results.decomposition.n   = n
-    results.decomposition.k   = k
-    results.decomposition.est = est
-    results.decomposition.se  = se
-    results.decomposition.tmp = rowshape((est, se), 2 * rows(est))
-    results.decomposition.Tvalues  = xlevels
-    results.decomposition.Tlabels  = results.estimates.Tlabels
-    results.decomposition.Tvar     = Tvar
-    results.decomposition.Yvar     = Yvar
-    results.decomposition.delta_pr = delta_pr
-    results.decomposition.gammam   = gammam
-    results.decomposition.tauhat_names = tauhat_names
-    results.decomposition.lambda_names = lambda_names
-
-    return(results)
+    this.decomposition.n            = n
+    this.decomposition.k            = k
+    this.decomposition.est          = est
+    this.decomposition.se           = se
+    this.decomposition.tmp          = rowshape((est, se), 2 * rows(est))
+    this.decomposition.Tvalues      = this.estimates.Tvalues
+    this.decomposition.Tlabels      = this.estimates.Tlabels
+    this.decomposition.Tvar         = this.estimates.Tvar
+    this.decomposition.Yvar         = this.estimates.Yvar
+    this.decomposition.delta_pr     = delta_pr
+    this.decomposition.gammam       = gammam
+    this.decomposition.tauhat_names = tauhat_names
+    this.decomposition.lambda_names = lambda_names
+    this.decomposition.run          = 1
 }
+
+// ----------------------------------------------------------------- //
+//                         Estimates Helpers                         //
+// ----------------------------------------------------------------- //
 
 void function MulTE_Estimates::new()
 {
+    run = 0
     colnames = ("ATE", "1-at-a-time", "common weights")'
 }
 
@@ -401,15 +490,21 @@ void function MulTE_Estimates::print(| real scalar digits)
     }
 }
 
+// ----------------------------------------------------------------- //
+//                       Decomposition Helpers                       //
+// ----------------------------------------------------------------- //
 
 void function MulTE_Decomposition::new()
 {
+    run= 0
     colnames = ("Coef", "Own Effect", "Bias", "Min Bias", "Max Bias")'
 }
 
 void function MulTE_Decomposition::save(string scalar outmatrix)
 {
     string vector rownames
+
+    if ( run == 0 ) return
     rownames = Tlabels[2::length(Tvalues)], J(rows(est), 1, "se")
     rownames = rowshape(rownames, rows(est) * 2)
 
@@ -426,6 +521,7 @@ void function MulTE_Decomposition::print(| real scalar minmax, real scalar digit
     string matrix fmt_res, fmt_est, fmt_se
     string vector rownames, formats, formats2
 
+    if ( run == 0 ) return
     rownames = Tlabels[2::length(Tvalues)], J(rows(est), 1, "")
     rownames = rowshape(rownames, rows(est) * 2)
 

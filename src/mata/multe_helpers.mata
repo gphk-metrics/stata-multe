@@ -1,6 +1,7 @@
 cap mata mata drop multe_helper_ols()
 cap mata mata drop multe_helper_olsw()
 cap mata mata drop multe_helper_olsr()
+cap mata mata drop multe_helper_olswr()
 cap mata mata drop multe_helper_results()
 cap mata mata drop multe_helper_antiselect()
 

@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.2.3 22Apr2022}{...}
+{* *! version 0.3.1 31May2022}{...}
 {viewerdialog multe "dialog multe"}{...}
 {vieweralsosee "[R] multe" "mansection R multe"}{...}
 {viewerjumpto "Syntax" "multe##syntax"}{...}
@@ -16,9 +16,9 @@
 {title:Syntax}
 
 {pstd}
-Multiple treatment effects regression.
-Given a multi-valued treatment, a saturated group variable (or a {varlist} which will be used to create a single, saturated group variable), and a dependent variable,
-{cmd:multe} computes equal-weighted (ATE), variance-weighted, efficiently-weighted treatment effects estimates and contamination bias decomposition as in Goldsmith-Pinkham et al. (2022).
+Multiple treatment effects regression. Given a multi-valued treatment, a saturated group variable (or a {varlist} which will be used to create a single, saturated
+group variable), and a dependent variable, {cmd:multe} computes equal-weighted (ATE), variance-weighted, efficiently-weighted treatment effects estimates
+and (optionally) contamination bias decomposition as in Goldsmith-Pinkham et al. (2022).
 
 {p 8 15 2}
 {cmd:multe}
@@ -38,7 +38,10 @@ Given a multi-valued treatment, a saturated group variable (or a {varlist} which
 {p_end}
 {synopt :{opt mata:save(str)}} Name of mata object with results (default: multe_results).
 {p_end}
-{synopt :{opt gen:erate(options)}} Optionally save tau (saturated group-specific treatment effects), lambda (implicit ATE regression weights). See {it:{help multe##gen_options:generate options}}.
+{synopt :{opt decomp:osition}} Optionally compute contamination bias decomposition. (Can be computed after main function run.)
+{p_end}
+{synopt :{opt gen:erate(options)}} Optionally save tau (saturated group-specific treatment effects) and/or lambda (implicit ATE regression weights); computes bias decomposition
+internally. (Can be computed after main function run.) See {it:{help multe##gen_options:generate options}}.
 {p_end}
 
 {marker gen_options}{...}
@@ -60,7 +63,7 @@ assigned. These are the equal-weighted averages (i.e. average treatment effects)
 weighted averages (as in Goldsmith-Pinkham et al. (2022)).
 
 {pstd}
-It also computes and saves a decomposition of regression estimates of treatment effects into an own-effect weighted average and a contamination bias term, following
+{cmd:multe} can optionally compute and save a decomposition of regression estimates of treatment effects into an own-effect weighted average and a contamination bias term, following
 Goldsmith-Pinkham et al. (2022). It also provides an option to save the implicit ATE regression weights (lambda) and/or the saturated group-specific treatment effects (tau) as variables
 (see {it:{help multe##options:options}} for details). Results are saved in {cmd:e()} (see {it:{help multe##results:stored results}} below for details).
 
@@ -88,9 +91,12 @@ propensity score for each treatment level as known.
 {phang}{opth mata:save(str)} supplies an alternative name for the mata structure which stores all estimates and variables in mata (default name is "multe_results").
 Note this is in addition to results stored in {cmd:e()}; see {it:{help multe##results:stored results}} below for details.
 
+{phang}{opt decomp:osition} computes contamination bias decomposition as in Goldsmith-Pinkham et al. (2022). This is computationally intensive and is therefore not computed by default.
+The user can compute the decomposition interactively using the most recent {cmd:multe} results via {cmd:multe, decomposition}.
+
 {phang}{opt gen:erate(options)} specifies whether to save lambda and/or tau (as defined above) as variables. The user can optionally specify the names of these two sets of variables via the
 options {cmd:lambda}[{cmd:(}str{cmd:)}] and {cmd:tau}[{cmd:(}str{cmd:)}]. For example, {cmd:gen(lambda tau)} would generate both with default names, while {cmd:gen(lambda(lname) tau(tname))}
-would generate them with custom names.
+would generate them with custom names. The user can generate these interactively using the most recent {cmd:multe} results via {cmd:multe, gen()}.
 
 {dlgtab:Generate Options}
 
@@ -111,22 +117,30 @@ would generate them with custom names.
 {phang2}{cmd:. gen Y = T + runiform()                                        }{p_end}
 {phang2}{cmd:. multe Y T, control(W)                                         }{p_end}
 {phang2}{cmd:. ereturn list                                                  }{p_end}
-{phang2}{cmd:. multe, vce(oracle)                                            }{p_end}
-{phang2}{cmd:. multe Y T, control(W) gen(lambda tau)                         }{p_end}
-{phang2}{cmd:. multe Y T, control(W) gen(lambda(awesomeName) tau(coolerName))}{p_end}
-{phang2}{cmd:. mata `e(mata)'.decomposition.print(1)                         }{p_end}
-{phang2}{cmd:. desc, full                                                    }{p_end}
+
+{pstd}Use cached results to compute decomposition, lambda, tau{p_end}
+
+{phang2}{cmd:. multe, vce(oracle)         }{p_end}
+{phang2}{cmd:. multe, decomposition       }{p_end}
+{phang2}{cmd:. multe, decomposition minmax}{p_end}
+{phang2}{cmd:. multe, gen(lambda tau)     }{p_end}
+
+{pstd}Compute decomposition, lambda, tau from the onset{p_end}
+
+{phang2}{cmd:. multe Y T, control(W) decomp gen(lambda(awesomeName) tau(coolerName))}{p_end}
+{phang2}{cmd:. desc, full                                                           }{p_end}
 
 {title:Example 2: Project STAR}
 
-{pstd}The data for this example can be downloaded with the {cmd:multe} package by specifying the option {cmd:all} (e.g. {it:ssc install multe, all}) or from our online repository {browse "https://raw.githubusercontent.com/gphk-metrics/stata-multe/ab353845e9cc4d3f30563c345342daff2ee1dec8/test/example_star.dta":here}.
+{pstd}The data for this example can be downloaded with the {cmd:multe} package by specifying the option {cmd:all} (i.e. {it:net install manyiv, all}).
 
-{phang2}{cmd:. use example_star.dta, clear                                         }{p_end}
-{phang2}{cmd:. multe score treatment, control(school)                              }{p_end}
-{phang2}{cmd:. ereturn list                                                        }{p_end}
-{phang2}{cmd:. multe, vce(oracle)                                                  }{p_end}
-{phang2}{cmd:. multe score treatment, control(school) gen(lambda(M_) tau(tauhat_)) }{p_end}
-{phang2}{cmd:. desc, full                                                          }{p_end}
+{phang2}{cmd:. use example_star.dta, clear           }{p_end}
+{phang2}{cmd:. multe score treatment, control(school)}{p_end}
+{phang2}{cmd:. ereturn list                          }{p_end}
+{phang2}{cmd:. multe, vce(oracle)                    }{p_end}
+{phang2}{cmd:. multe, gen(lambda(M_) tau(tauhat_))   }{p_end}
+{phang2}{cmd:. multe, decomp                         }{p_end}
+{phang2}{cmd:. desc, full                            }{p_end}
 
 {pstd}After obtaining the implicit regression weights (lambda) and group-specific treatment effects (tau) based on a partially linear model, you can calculate
 the correlations to get a sense of how much contamination bias might affect estimates from such a model:
@@ -136,7 +150,7 @@ the correlations to get a sense of how much contamination bias might affect esti
 {pstd}You can also optionally specify an alternative name for the mata struct which contains stored results (see {it:{help multe##mata:Stored mata results}}).
 
 {phang2}{cmd:. multe score treatment, control(school) matasave(matastructname)}{p_end}
-{phang2}{cmd:. mata mata desc}{p_end}
+{phang2}{cmd:. mata mata desc                                                 }{p_end}
 
 {marker results}{...}
 {title:Stored results}
@@ -152,6 +166,7 @@ the correlations to get a sense of how much contamination bias might affect esti
 {synopt:{cmd:e(cmd)}}{cmd:multe}{p_end}
 {synopt:{cmd:e(cmdline)}}command as typed{p_end}
 {synopt:{cmd:e(depvar)}}name of dependent variable{p_end}
+{synopt:{cmd:e(treatment)}}name of multi-valued treatment{p_end}
 {synopt:{cmd:e(control)}}name of control variable{p_end}
 {synopt:{cmd:e(vce)}}only populated when {opt vce(oracle)} is requested{p_end}
 {synopt:{cmd:e(vcetype)}}title used to label Std. Err.{p_end}
@@ -164,7 +179,7 @@ the correlations to get a sense of how much contamination bias might affect esti
 {synopt:{cmd:e(V)}}block diagonal matrix of three covariance matrices corresponding to the ATE estimates, one-at-a-time estimates, and efficiently-weighted
 estimates. Note the covariance matrix for the one-at-a-time estimates only reports diagonal terms.{p_end}
 {synopt:{cmd:e(estimates)}}matrix of coefficients, including SE and orable SE.{p_end}
-{synopt:{cmd:e(decomposition)}}decomposition matrix (beta, own effect, contamination bias, minimum bias, maximum bias){p_end}
+{synopt:{cmd:e(decomposition)}}decomposition matrix, if requested (beta, own effect, contamination bias, minimum bias, maximum bias){p_end}
 
 {p2col 5 23 26 2: Functions}{p_end}
 {synopt:{cmd:e(sample)}}marks estimation sample{p_end}

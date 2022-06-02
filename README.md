@@ -3,30 +3,24 @@ MulTE
 
 Multiple Treatment Effects regression
 
-`version 0.2.3 22Apr2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
+`version 0.3.1 31May2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
 
 ### Installation
 
-From the command line:
+From Stata
 
-```
-git clone git@github.com:gphk-metrics/stata-multe
-```
-
-(or download the code manually and unzip). From Stata:
-
-```
-cap noi net uninstall multe
-net install multe, from(`c(pwd)'/stata-multe)
-```
-
-(Change `stata-multe` if you download the package to a different
-folder; e.g. `stata-multe-main`.) Note if the repo were public, this
-could be installed directly from Stata:
-
-```
+```stata
 local github "https://raw.githubusercontent.com"
+cap noi net uninstall multe
 net install manyiv, from(`github'/gphk-metrics/stata-multe/main/)
+```
+
+You can also clone or download the code manually, e.g. to
+`stata-multe-main`, and install from a local folder:
+
+```stata
+cap noi net uninstall multe
+net install multe, from(`c(pwd)'/stata-multe-main)
 ```
 
 ### Usage
@@ -49,10 +43,14 @@ gen W = mod(_n, 10)
 gen Y = T + runiform()
 multe Y T, control(W)
 ereturn list
-mata `e(mata)'.decomposition.print(0)
-mata `e(mata)'.decomposition.print(1)
+
+* Use cached results to compute decomposition, lambda, tau
 multe, vce(oracle)
-multe Y T, control(W) gen(lambda tau)
-multe Y T, control(W) gen(lambda(awesomeName) tau(coolerName))
+multe, decomposition
+multe, decomposition minmax
+multe, gen(lambda tau)
+
+* Compute decomposition, lambda, tau from the onset
+multe Y T, control(W) decomp gen(lambda(awesomeName) tau(coolerName))
 desc, full
 ```
