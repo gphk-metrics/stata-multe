@@ -3,7 +3,7 @@ mata: mata clear
 mata: mata set matastrict on
 mata: mata set mataoptimize on
 cap noi mkdir build
-cap noi erase build/lmanyiv.mlib
+cap noi erase build/lmulte.mlib
 do src/mata/multe_helpers.mata
 do src/mata/multe.mata
 mata: mata mlib create lmulte, dir("build") replace

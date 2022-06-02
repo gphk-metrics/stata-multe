@@ -132,7 +132,7 @@ would generate them with custom names. The user can generate these interactively
 
 {title:Example 2: Project STAR}
 
-{pstd}The data for this example can be downloaded with the {cmd:multe} package by specifying the option {cmd:all} (i.e. {it:net install manyiv, all}).
+{pstd}The data for this example can be downloaded with the {cmd:multe} package by specifying the option {cmd:all} (i.e. {it:net install multe, all}).
 
 {phang2}{cmd:. use example_star.dta, clear           }{p_end}
 {phang2}{cmd:. multe score treatment, control(school)}{p_end}

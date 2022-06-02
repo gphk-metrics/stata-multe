@@ -12,7 +12,7 @@ From Stata
 ```stata
 local github "https://raw.githubusercontent.com"
 cap noi net uninstall multe
-net install manyiv, from(`github'/gphk-metrics/stata-multe/main/)
+net install multe, from(`github'/gphk-metrics/stata-multe/main/)
 ```
 
 You can also clone or download the code manually, e.g. to
