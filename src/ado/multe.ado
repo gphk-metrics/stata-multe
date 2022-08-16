@@ -1,4 +1,4 @@
-*! version 0.3.1 31May2022
+*! version 0.3.2 16Aug2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com> and Jerray Chang <jerray@bu.edu>
@@ -84,7 +84,7 @@ program multe, eclass
         mata `results'.decomposition("`depvar'", "`treatment'", "`W'", "`touse'")
 
         * Save lambda and tauhat, if requested
-        LambdaTau, results(`results') `generate'
+        LambdaTau, results(`results') touse(`touse') `generate'
     }
     mata `results'.cache_drop()
 
@@ -114,7 +114,7 @@ end
 
 capture program drop LambdaTau
 program LambdaTau
-    syntax, results(str) [lambda LAMBDAprefix(str) tau TAUprefix(str)]
+    syntax, results(str) [lambda LAMBDAprefix(str) tau TAUprefix(str) touse(str)]
     tempname types names
 
     local savelambda = ("`lambdaprefix'" != "") | ("`lambda'" != "")
@@ -128,7 +128,12 @@ program LambdaTau
         mata: `names' = "`lambdaprefix'" :+ `names'
         mata: `types' = J(1, cols(`names'), "`:set type'")
         mata: (void) st_addvar(`types', `names')
-        mata: (void) st_store(., `names', `results'.decomposition.lambda(`results'.Wm))
+        if "`touse'" != "" {
+            mata: (void) st_store(., `names', "`touse'", `results'.decomposition.lambda(`results'.Wm))
+        }
+        else {
+            mata: (void) st_store(., `names', `results'.decomposition.lambda(`results'.Wm))
+        }
     }
 
     if ( `savetau' ) {
@@ -136,7 +141,12 @@ program LambdaTau
         mata: `names' = "`tauprefix'" :+ `names'
         mata: `types' = J(1, cols(`names'), "`:set type'")
         mata: (void) st_addvar(`types', `names')
-        mata: (void) st_store(., `names', `results'.decomposition.tauhat(`results'.Wm))
+        if "`touse'" != "" {
+            mata: (void) st_store(., `names', "`touse'", `results'.decomposition.tauhat(`results'.Wm))
+        }
+        else {
+            mata: (void) st_store(., `names', `results'.decomposition.tauhat(`results'.Wm))
+        }
     }
 end
 
@@ -170,7 +180,7 @@ program Decomposition
     egen `c(obs_t)' `W' = group(`e(control)') if `touse'
     mata `e(mata)'.cache_load("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'")
     mata `e(mata)'.decomposition("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'")
-    LambdaTau, results(`e(mata)') `options'
+    LambdaTau, results(`e(mata)') `options' touse(`touse')
     mata `e(mata)'.cache_drop()
 end
 
