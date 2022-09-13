@@ -71,8 +71,13 @@ program multe, eclass
     local nobs = `r(N)'
     qui replace `touse' = 0 if (`Tdrop' == 1)
     if ( `nobs' | `nstrata' ) {
-        disp as txt "`nstrata' control strata without sufficient overlap dropped (`nobs' obs)"
-        * exit 498
+        disp as txt "dropped `nstrata' control strata without sufficient overlap (`nobs' obs)"
+    }
+
+    qui count if `touse'
+    if ( `r(N)' == 0 ) {
+        disp as txt "insufficient observations for estimation"
+        exit 498
     }
 
     qui drop `W'
