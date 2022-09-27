@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.3.2 16Aug2022}{...}
+{* *! version 0.4.0 26Sep2022}{...}
 {viewerdialog multe "dialog multe"}{...}
 {vieweralsosee "[R] multe" "mansection R multe"}{...}
 {viewerjumpto "Syntax" "multe##syntax"}{...}
@@ -25,6 +25,7 @@ and (optionally) contamination bias decomposition as in Goldsmith-Pinkham et al.
 {depvar}
 {it:treatment}
 {ifin}
+[{it:{help multe##weight:weight}}]
 {cmd:,}
 {opth control(varlist)}
 [{it:{help multe##table_options:options}}]
@@ -53,6 +54,13 @@ internally. (Can be computed after main function run.) See {it:{help multe##gen_
 
 {p2colreset}{...}
 {p 4 6 2}
+
+{marker weight}{...}
+{p 4 6 2}
+{opt aweight}s, {opt fweight}s, and {opt pweight}s are allowed.
+All are handled in the same way: The number of observations is
+assumed to be the sum of the value of the weights and observations
+with missing or zero weights are excluded.
 
 {marker description}{...}
 {title:Description}
@@ -192,6 +200,9 @@ In addition, the following data are available in {cmd:e(mata)} (default name: mu
         real scalar estimates.n
             number of observations
 
+        real scalar estimates.nw
+            sum of the weights (number of observations used in computations)
+
         real scalar estimates.k
             number of treatment levels
 
@@ -215,6 +226,9 @@ In addition, the following data are available in {cmd:e(mata)} (default name: mu
 
         string scalar estimates.Yvar
             outcome variable name
+
+        string scalar estimates.weight
+            weight variable name (blank if no weights are specified)
 
         string vector estimates.colnames
             column names for printing/saving estimates

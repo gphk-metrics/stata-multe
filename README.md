@@ -3,7 +3,7 @@ MulTE
 
 Multiple Treatment Effects regression
 
-`version 0.3.2 16Aug2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
+`version 0.4.0 26Sep2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
 
 ### Installation
 
@@ -26,9 +26,12 @@ net install multe, from(`c(pwd)'/stata-multe-main)
 ### Usage
 
 ```
-multe depvar treatment, control(varname) [options]
+multe depvar treatment [w=weight], control(varname) [options]
 help multe
 ```
+
+Weights are optional; if specified, the number of observations
+is assumed to be the sum of the weights.
 
 ### Examples
 

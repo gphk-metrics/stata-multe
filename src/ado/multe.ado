@@ -1,4 +1,4 @@
-*! version 0.3.2 16Aug2022
+*! version 0.4.0 26Sep2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com> and Jerray Chang <jerray@bu.edu>
@@ -14,7 +14,7 @@ program multe, eclass
 
     local 0bak: copy local 0
     syntax varlist(numeric fv ts min=2 max=2)  /// depvar treatment
-           [if] [in] ,                         /// subset
+           [if] [in] [aw fw pw],               /// subset, weights
         control(varlist)                       /// control variable
     [                                          ///
         vce(str)                               /// SEs to be displayed
@@ -42,7 +42,16 @@ program multe, eclass
 
     * Mark if, in, and any missing values by obs
     local varlist `varlist' `control'
-    marksample touse, strok
+	if ( `"`weight'"' != "" ) {
+		tempvar touse wgt
+		qui gen double `wgt' `exp' `if' `in'
+        mark `touse' `if' `in' [`weight'=`wgt']
+        markout `touse' `varlist', strok
+	}
+    else {
+        local wgt
+        marksample touse, strok
+    }
 
     * Copy to mata for mata fun
     if "`matasave'" == "" local results multe_results
@@ -58,7 +67,7 @@ program multe, eclass
     egen byte       `Wtag'  = tag(`W') if `touse'
     egen byte       `Ttag'  = tag(`W' `treatment') if `touse'
     egen double     `Tuniq' = sum(`Ttag') if `touse', by(`W')
-    gen byte `Tdrop'    = (`Tuniq' < `Tk') if `touse'
+    gen byte `Tdrop' = (`Tuniq' < `Tk') if `touse'
     cap assert `Tuniq' <= `Tk' if `touse'
     if ( _rc ) {
         disp as err "found more levels within a control strata than levels overall"
@@ -83,7 +92,7 @@ program multe, eclass
     qui drop `W'
     egen `c(obs_t)' `W' = group(`control') if `touse'
     mata `results' = MulTE()
-    mata `results'.estimates("`depvar'", "`treatment'", "`W'", "`touse'")
+    mata `results'.estimates("`depvar'", "`treatment'", "`W'", "`touse'", "`wgt'", "`weight'")
 
     if ( `decomp' ) {
         mata `results'.decomposition("`depvar'", "`treatment'", "`W'", "`touse'")
