@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.0 26Sep2022}{...}
+{* *! version 0.4.1 28Sep2022}{...}
 {viewerdialog multe "dialog multe"}{...}
 {vieweralsosee "[R] multe" "mansection R multe"}{...}
 {viewerjumpto "Syntax" "multe##syntax"}{...}
@@ -57,10 +57,11 @@ internally. (Can be computed after main function run.) See {it:{help multe##gen_
 
 {marker weight}{...}
 {p 4 6 2}
-{opt aweight}s, {opt fweight}s, and {opt pweight}s are allowed.
-All are handled in the same way: The number of observations is
-assumed to be the sum of the value of the weights and observations
-with missing or zero weights are excluded.
+{opt aweight}s and {opt fweight}s are allowed. {opt fweight}s are
+assumed to represent underlying observations (i.e. the sum of the
+weights are used in place of the total number of observations);
+{opt aweight}s are rescaled to the sum of the weights adds up to
+the number of observations.
 
 {marker description}{...}
 {title:Description}
@@ -173,6 +174,8 @@ the correlations to get a sense of how much contamination bias might affect esti
 {p2col 5 23 26 2: Macros}{p_end}
 {synopt:{cmd:e(cmd)}}{cmd:multe}{p_end}
 {synopt:{cmd:e(cmdline)}}command as typed{p_end}
+{synopt:{cmd:e(wtype)}}weight type{p_end}
+{synopt:{cmd:e(wexp)}}weight expression{p_end}
 {synopt:{cmd:e(depvar)}}name of dependent variable{p_end}
 {synopt:{cmd:e(treatment)}}name of multi-valued treatment{p_end}
 {synopt:{cmd:e(control)}}name of control variable{p_end}
@@ -227,8 +230,11 @@ In addition, the following data are available in {cmd:e(mata)} (default name: mu
         string scalar estimates.Yvar
             outcome variable name
 
-        string scalar estimates.weight
-            weight variable name (blank if no weights are specified)
+        string scalar estimates.wgtvar
+            weight expression (blank if no weights are specified)
+
+        string scalar estimates.wtype
+            weight type (blank if no weights are specified)
 
         string vector estimates.colnames
             column names for printing/saving estimates

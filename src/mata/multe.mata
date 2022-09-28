@@ -43,7 +43,7 @@ class MulTE_Estimates
     string scalar Tvar
     string scalar Yvar
     string scalar wgtvar
-    string scalar weight
+    string scalar wtype
 
     real matrix po_vcov
     real matrix or_vcov
@@ -58,12 +58,15 @@ class MulTE_Decomposition
 {
     real scalar run
     real scalar n
+    real scalar nw
     real scalar k
     real matrix est
     real matrix se
     real matrix tmp
     real matrix gammam
     real matrix delta_pr
+    string scalar wgtvar
+    string scalar wtype
 
     real   vector Tvalues
     string vector Tlabels
@@ -118,6 +121,7 @@ void MulTE::estimates(
 
     cache_load(Yvar, Tvar, Wvar, touse, wgt)
     nobs   = length(Y)
+    if ( wtype == "aweight" ) w = nobs * w / sum(w)
     nobsw  = sum(w)
     k      = cols(Xm)
     X0     = Xm[., 1]
@@ -216,7 +220,7 @@ void MulTE::estimates(
     this.estimates.Tvar     = Tvar
     this.estimates.Yvar     = Yvar
     this.estimates.wgtvar   = wgt
-    this.estimates.weight   = wtype
+    this.estimates.wtype    = wtype
     this.estimates.po_vcov  = po_vcov
     this.estimates.or_vcov  = or_vcov
     this.estimates.run      = 1
@@ -256,12 +260,18 @@ void function MulTE::cache_drop()
     cache   = 0
 }
 
-void function MulTE::decomposition(string scalar Yvar, string scalar Tvar, string scalar Wvar, string scalar touse, string scalar wgt)
+void function MulTE::decomposition(
+    string scalar Yvar,
+    string scalar Tvar,
+    string scalar Wvar,
+    string scalar touse,
+    string scalar wgt,
+    string scalar wtype)
 {
     struct multe_helper_results scalar ri, rd, rddX
     string vector lambda_names, tauhat_names
 
-    real scalar i, l, j, n, k, kw, kwx, j1, j2
+    real scalar i, l, j, nobs, nobsw, k, kw, kwx, j1, j2
     real matrix WmXm, gamma, psi_gamma, deltak, psi_deltak, ddX, M, psi
     real matrix est, estk, se, psimin, psimax
     real matrix delta_kl, delta_pr, gammam
@@ -271,9 +281,11 @@ void function MulTE::decomposition(string scalar Yvar, string scalar Tvar, strin
     if ( this.decomposition.run ) return
 
     cache_load(Yvar, Tvar, Wvar, touse, wgt)
-    n  = rows(Y)
-    k  = cols(Xm)
-    kw = cols(Wm)
+    nobs  = length(Y)
+    if ( wtype == "aweight" ) w = nobs * w / sum(w)
+    nobsw = sum(w)
+    k     = cols(Xm)
+    kw    = cols(Wm)
 
     // From R> matrix of controls Wm including intercept; X must be a
     // From R> factor, first level to be dropped
@@ -284,19 +296,19 @@ void function MulTE::decomposition(string scalar Yvar, string scalar Tvar, strin
     kwx  = kw + (k - 1) * kw
     M    = I(k - 1)#J(kw, 1, 1)
     Xm   = Xm[., 2::k]
-    WmXm = J(n, kwx, 0)
-    WmXm[|1, 1 \ n, kw|] = Wm
+    WmXm = J(nobs, kwx, 0)
+    WmXm[|1, 1 \ nobs, kw|] = Wm
     for(j = 1; j < k; j++) {
         j1 = kw + (j - 1) * kw + 1
         j2 = kw + (j - 0) * kw
-        WmXm[|1, j1 \ n, j2|] = Xm[., j] :* Wm
+        WmXm[|1, j1 \ nobs, j2|] = Xm[., j] :* Wm
     }
 
-    ri = multe_helper_olsr(Y, WmXm)
+    ri = multe_helper_olswr(Y, WmXm, w)
     gamma = ri.coefficients[|(kw+1) \ cols(WmXm)|]
-    rd = multe_helper_olsr(WmXm[|(1, kw+1) \ (n, cols(WmXm))|], (Xm, Wm))
+    rd = multe_helper_olswr(WmXm[|(1, kw+1) \ (nobs, cols(WmXm))|], (Xm, Wm), w)
     psi_gamma = ((ri.residuals :* WmXm) *
-                  invsym(cross(WmXm, WmXm)))[|(1, kw+1) \ (n, cols(WmXm))|]
+                  invsym(cross(WmXm, w, WmXm)))[|(1, kw+1) \ (nobs, cols(WmXm))|]
 
     // NB: Given Wm and Xm are collections of non-overlapping
     // indicators, cross(WmXm, WmXm) and subsequent calculations
@@ -314,8 +326,8 @@ void function MulTE::decomposition(string scalar Yvar, string scalar Tvar, strin
     // ri_coef   = WD * WY
     // gamma     = ri_coef[|(kw+1) \ kwx|]
     // ri_res    = Y - WmXm * ri_coef
-    // psi_gamma = (ri_res :* (WmXm * WD))[|(1, kw+1) \ (n, kwx)|]
-    // rd        = multe_helper_olsr(WmXm[|(1, kw+1) \ (n, kwx)|], (Xm, Wm)) // delta
+    // psi_gamma = (ri_res :* (WmXm * WD))[|(1, kw+1) \ (nobs, kwx)|]
+    // rd        = multe_helper_olsr(WmXm[|(1, kw+1) \ (nobs, kwx)|], (Xm, Wm)) // delta
 
     // Sort columns by size
     ghelper = rowshape(colshape(J(kw, 1, 1::(k-1)), k-1)', kw * (k - 1))
@@ -329,11 +341,11 @@ void function MulTE::decomposition(string scalar Yvar, string scalar Tvar, strin
 
     // Standard errors
     for (j = 1; j < k; j++) {
-        rddX = multe_helper_olsr(Xm[., j], (multe_helper_antiselect(Xm, j), Wm))
+        rddX = multe_helper_olswr(Xm[., j], (multe_helper_antiselect(Xm, j), Wm), w)
         ddX  = rddX.residuals // ddot(X)
 
         deltak     = rd.coefficients[j, .]'
-        psi_deltak = ddX :* rd.residuals / sum(ddX:^2)
+        psi_deltak = ddX :* rd.residuals / sum(w :* (ddX:^2))
 
         psi  = psi_deltak * (gamma :* M) + psi_gamma * (deltak :* M)
         estk = gamma' * (deltak :* M)
@@ -346,6 +358,7 @@ void function MulTE::decomposition(string scalar Yvar, string scalar Tvar, strin
         psimax = psi_deltak * ggi + psigi * deltak
         psimin = psi_deltak * ggd + psigd * deltak
 
+        // NB: These are coefficients and needn't be weighted summed
         est[j,.] = (
             sum(estk),
             estk[j],
@@ -355,11 +368,11 @@ void function MulTE::decomposition(string scalar Yvar, string scalar Tvar, strin
         )
 
         se[j,.] = sqrt((
-            sum(rowsum(psi):^2),
-            sum(psi[., j]:^2),
-            sum(rowsum(multe_helper_antiselect(psi, j)):^2),
-            sum(rowsum(multe_helper_antiselect(psimin, j)):^2),
-            sum(rowsum(multe_helper_antiselect(psimax, j)):^2)
+            sum(w :* (rowsum(psi):^2)),
+            sum(w :* (psi[., j]:^2)),
+            sum(w :* (rowsum(multe_helper_antiselect(psi, j)):^2)),
+            sum(w :* (rowsum(multe_helper_antiselect(psimin, j)):^2)),
+            sum(w :* (rowsum(multe_helper_antiselect(psimax, j)):^2))
         ))
     }
 
@@ -381,10 +394,11 @@ void function MulTE::decomposition(string scalar Yvar, string scalar Tvar, strin
     }
 
     delta_kl = rowshape(rowshape(rd.coefficients[1..(k-1),.], 1), (k-1)*(k-1))'
-    delta_pr = delta_kl :/ (mean(Wm)')
+    delta_pr = delta_kl :/ (mean(Wm, w)')
     gammam   = rowshape(gamma, k-1)
 
-    this.decomposition.n            = n
+    this.decomposition.n            = nobs
+    this.decomposition.nw           = nobsw
     this.decomposition.k            = k
     this.decomposition.est          = est
     this.decomposition.se           = se
@@ -393,6 +407,8 @@ void function MulTE::decomposition(string scalar Yvar, string scalar Tvar, strin
     this.decomposition.Tlabels      = this.estimates.Tlabels
     this.decomposition.Tvar         = this.estimates.Tvar
     this.decomposition.Yvar         = this.estimates.Yvar
+    this.decomposition.wgtvar       = wgt
+    this.decomposition.wtype        = wtype
     this.decomposition.delta_pr     = delta_pr
     this.decomposition.gammam       = gammam
     this.decomposition.tauhat_names = tauhat_names

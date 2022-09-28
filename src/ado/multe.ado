@@ -1,4 +1,4 @@
-*! version 0.4.0 26Sep2022
+*! version 0.4.1 28Sep2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com> and Jerray Chang <jerray@bu.edu>
@@ -14,7 +14,7 @@ program multe, eclass
 
     local 0bak: copy local 0
     syntax varlist(numeric fv ts min=2 max=2)  /// depvar treatment
-           [if] [in] [aw fw pw],               /// subset, weights
+           [if] [in] [aw fw],                  /// subset, weights
         control(varlist)                       /// control variable
     [                                          ///
         vce(str)                               /// SEs to be displayed
@@ -93,9 +93,11 @@ program multe, eclass
     egen `c(obs_t)' `W' = group(`control') if `touse'
     mata `results' = MulTE()
     mata `results'.estimates("`depvar'", "`treatment'", "`W'", "`touse'", "`wgt'", "`weight'")
+    mata `results'.estimates.wgtvar = st_local("exp")
 
     if ( `decomp' ) {
-        mata `results'.decomposition("`depvar'", "`treatment'", "`W'", "`touse'")
+        mata `results'.decomposition("`depvar'", "`treatment'", "`W'", "`touse'", "`wgt'", "`weight'")
+        mata `results'.decomposition.wgtvar = st_local("exp")
 
         * Save lambda and tauhat, if requested
         LambdaTau, results(`results') touse(`touse') `generate'
@@ -111,6 +113,8 @@ program multe, eclass
     Display `results', vce(`vce') touse(`touse')
     mata st_local("cmdline", "multe " + st_local("0bak"))
     ereturn local cmdline: copy local cmdline
+    ereturn local wtype     = "`weight'"
+    ereturn local wexp      = "`exp'"
     ereturn local cmd       = "multe"
     ereturn local depvar    = "`depvar'"
     ereturn local treatment = "`treatment'"
@@ -191,9 +195,13 @@ program Decomposition
     syntax, [*]
     tempvar touse W
     gen byte `touse' = e(sample)
+    if "`e(wexp)'" != "" {
+        tempvar wgt
+        qui gen double `wgt' `e(wexp)' if `touse'
+    }
     egen `c(obs_t)' `W' = group(`e(control)') if `touse'
     mata `e(mata)'.cache_load("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'")
-    mata `e(mata)'.decomposition("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'")
+    mata `e(mata)'.decomposition("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'", "`wgt'", "`e(wtype)'")
     LambdaTau, results(`e(mata)') `options' touse(`touse')
     mata `e(mata)'.cache_drop()
 end

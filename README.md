@@ -3,7 +3,7 @@ MulTE
 
 Multiple Treatment Effects regression
 
-`version 0.4.0 26Sep2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
+`version 0.4.1 28Sep2022` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
 
 ### Installation
 
