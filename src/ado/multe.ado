@@ -200,7 +200,7 @@ program Decomposition
         qui gen double `wgt' `e(wexp)' if `touse'
     }
     egen `c(obs_t)' `W' = group(`e(control)') if `touse'
-    mata `e(mata)'.cache_load("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'")
+    mata `e(mata)'.cache_load("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'", "`wgt'")
     mata `e(mata)'.decomposition("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'", "`wgt'", "`e(wtype)'")
     LambdaTau, results(`e(mata)') `options' touse(`touse')
     mata `e(mata)'.cache_drop()
