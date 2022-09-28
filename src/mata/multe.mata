@@ -169,6 +169,7 @@ void MulTE::estimates(
         X0_s = X0[s]
         Y_s  = Y[s]
         w_s  = w[s]
+        if ( wtype == "aweight" ) w_s = length(Y_s) * w_s / sum(w_s)
 
         Xdot            = Xm_s - Wm_s * multe_helper_olsw(Xm_s, Wm_s, w_s)
         rk              = multe_helper_olswr(Y_s, (Xdot, Wm_s), w_s)

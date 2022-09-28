@@ -1,12 +1,15 @@
 capture program drop multe_weight_tests
 program multe_weight_tests
-* TODO: xx test lambda and tau (i.e. decomposition)
     multe_load_test_data
     gen `c(obs_t)' G = _n
     gen `c(obs_t)' _expand = ceil(runiform() * _N/50)
     gen double Y = Ydouble + rnormal() * _N / 50
     qui sum _expand
     local ratio = sqrt(r(sum) / _N)
+
+    * --------------------
+    * Internal Consistency
+    * --------------------
 
     multe Y Tbyte             , control(Wbyte) mata(now)  decomp gen(lambda(lnow) tau(tnow))
     multe Y Tbyte [aw=_expand], control(Wbyte) mata(aw)   decomp gen(lambda(law)  tau(taw))
@@ -27,8 +30,50 @@ program multe_weight_tests
     mata assert(max(reldif(aw.estimates.se_or, now.estimates.se_or)) > sqrt(epsilon(1)))
 
     mata assert(max(reldif(aw.estimates.est, fw.estimates.est)) < (epsilon(1)^(3/4)))
-    mata assert(max(abs(`ratio' :- aw.estimates.se_po :/ fw.estimates.se_po)) < (epsilon(1)^(3/4)))
-    mata assert(max(abs(`ratio' :- aw.estimates.se_or :/ fw.estimates.se_or)) < (epsilon(1)^(3/4)))
+    mata assert(max(abs(`ratio' :- aw.estimates.se_po[., (1, 3)] :/ fw.estimates.se_po[., (1, 3)][., (1, 3)])) < (epsilon(1)^(3/4)))
+    mata assert(max(abs(`ratio' :- aw.estimates.se_or[., (1, 3)] :/ fw.estimates.se_or[., (1, 3)])) < (epsilon(1)^(3/4)))
+
+    * ----------------------
+    * vs regress (oaat only)
+    * ----------------------
+
+    qui tab Wbyte, gen(_W)
+    local k = r(r) + 1
+    mata oaat = J(4, 2, .)
+    forvalues i = 2 / 5 {
+        qui reg Y i`i'.Tbyte _W* if inlist(Tbyte, 1, `i'), noc r
+        mata oaat[`i'-1, .] = st_matrix("r(table)")[1::2, 1]'
+    }
+    mata info = panelsetup(sort(st_data(., "Tbyte"), 1), 1)
+    mata nj   = info[2::rows(info), 2] :- info[2::rows(info), 1] :+ 1 :+ info[1, 2]
+    mata assert(max(reldif(now.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif((nj :- `k') :/ nj, (now.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+
+    mata oaat = J(4, 2, .)
+    forvalues i = 2 / 5 {
+        qui reg Y i`i'.Tbyte _W* if inlist(Tbyte, 1, `i') [aw=_expand], noc r
+        mata oaat[`i'-1, .] = st_matrix("r(table)")[1::2, 1]'
+    }
+    mata info = panelsetup(sort(st_data(., "Tbyte"), 1), 1)
+    mata nj   = info[2::rows(info), 2] :- info[2::rows(info), 1] :+ 1 :+ info[1, 2]
+    mata assert(max(reldif(aw.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
+    * xx fails atm mata assert(max(reldif((nj :- `k') :/ nj, (aw.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+
+    mata oaat = J(4, 2, .)
+    forvalues i = 2 / 5 {
+        qui reg Y i`i'.Tbyte _W* if inlist(Tbyte, 1, `i') [fw=_expand], noc r
+        mata oaat[`i'-1, .] = st_matrix("r(table)")[1::2, 1]'
+    }
+    mata X    = sort(st_data(., "Tbyte _expand"), 1)
+    mata info = panelsetup(X[., 1], 1)
+    mata nj   = panelsum(X[., 2], info)
+    mata nj   = nj[1] :+ nj[|2 \ length(nj)|]
+    mata assert(max(reldif(fw.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif((nj :- `k') :/ nj, (fw.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+
+    * --------------------
+    * Internal Consistency
+    * --------------------
 
     expand _expand
     multe Y Tbyte, control(Wbyte) mata(ex) decomp gen(lambda(lex) tau(tex))
@@ -50,8 +95,18 @@ program multe_weight_tests
     mata assert(max(reldif(fw.estimates.se_or, ex.estimates.se_or)) < (epsilon(1)^(3/4)))
 
     mata assert(max(reldif(aw.estimates.est, ex.estimates.est)) < (epsilon(1)^(3/4)))
-    mata assert(max(abs(`ratio' :- aw.estimates.se_po :/ ex.estimates.se_po)) < (epsilon(1)^(3/4)))
-    mata assert(max(abs(`ratio' :- aw.estimates.se_or :/ ex.estimates.se_or)) < (epsilon(1)^(3/4)))
+    mata assert(max(abs(`ratio' :- aw.estimates.se_po[., (1, 3)] :/ ex.estimates.se_po[., (1, 3)])) < (epsilon(1)^(3/4)))
+    mata assert(max(abs(`ratio' :- aw.estimates.se_or[., (1, 3)] :/ ex.estimates.se_or[., (1, 3)])) < (epsilon(1)^(3/4)))
+
+    mata oaat = J(4, 2, .)
+    forvalues i = 2 / 5 {
+        qui reg Y i`i'.Tbyte _W* if inlist(Tbyte, 1, `i'), noc r
+        mata oaat[`i'-1, .] = st_matrix("r(table)")[1::2, 1]'
+    }
+    mata info = panelsetup(sort(st_data(., "Tbyte"), 1), 1)
+    mata nj   = info[2::rows(info), 2] :- info[2::rows(info), 1] :+ 1 :+ info[1, 2]
+    mata assert(max(reldif(ex.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif((nj :- `k') :/ nj, (ex.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
 
     contract Y Tbyte Wbyte G _expand lex* tex*, f(_nobs)
     assert _expand == _nobs

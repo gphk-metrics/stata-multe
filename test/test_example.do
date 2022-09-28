@@ -18,3 +18,5 @@ gen Y  = 0 * X1 + X2 * (1 - W)
 reg Y X1 X2 W
 gen byte X = 1 * X1 + 2 * X2
 multe Y X, control(W)
+reg Y X1 W
+reg Y X2 W
