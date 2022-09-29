@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.4.1 28Sep2022}{...}
+{* *! version 0.4.2 29Sep2022}{...}
 {viewerdialog multe "dialog multe"}{...}
 {vieweralsosee "[R] multe" "mansection R multe"}{...}
 {viewerjumpto "Syntax" "multe##syntax"}{...}
@@ -57,11 +57,10 @@ internally. (Can be computed after main function run.) See {it:{help multe##gen_
 
 {marker weight}{...}
 {p 4 6 2}
-{opt aweight}s and {opt fweight}s are allowed. {opt fweight}s are
-assumed to represent underlying observations (i.e. the sum of the
-weights are used in place of the total number of observations);
-{opt aweight}s are rescaled to the sum of the weights adds up to
-the number of observations.
+{opt aweight}s and {opt fweight}s are allowed. {opt fweight}s
+are assumed to represent underlying observations (i.e. each row represnts
+that many copies in underlying data); {opt aweight}s are rescaled so the 
+sum of the weights adds up to the number of observations.
 
 {marker description}{...}
 {title:Description}

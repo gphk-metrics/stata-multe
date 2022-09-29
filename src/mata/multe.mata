@@ -8,6 +8,7 @@ mata
 // Wvar  = "`W'"
 // touse = "`touse'"
 // wgt   = "`wgt'"
+// wtype = "`weight'"
 
 class MulTE
 {
@@ -122,7 +123,7 @@ void MulTE::estimates(
     cache_load(Yvar, Tvar, Wvar, touse, wgt)
     nobs   = length(Y)
     if ( wtype == "aweight" ) w = nobs * w / sum(w)
-    nobsw  = sum(w)
+    nobsw  = (wtype == "fweight")? sum(w): nobs
     k      = cols(Xm)
     X0     = Xm[., 1]
     alpha0 = multe_helper_olsw(select(Y, X0), select(Wm, X0), select(w, X0))
@@ -152,15 +153,21 @@ void MulTE::estimates(
 
     for(j = 2; j <= k; j++) {
         alphak = multe_helper_olsw(select(Y, Xm[., j]), select(Wm, Xm[., j]), select(w, Xm[., j]))
-        psi_alphak = (Xm[.,j] :* (Y - Wm * alphak) :* Wm) * qrinv(cross(Xm[., j] :* Wm, w, Wm) / nobsw)
+        psi_alphak = (Xm[.,j] :* (Y - Wm * alphak) :* Wm) * qrinv(cross(Xm[., j] :* Wm, w, Wm)/nobsw)
 
         // ATE
         est[j - 1, 1] = (Wmean * (alphak - alpha0))
-        psi_or = ((psi_alphak - psi_alpha0) * Wmean')
-        se_or[j - 1, 1] = sqrt(variance(psi_or, w) * (nobsw - 1) / nobsw^2)
-        se_po[j - 1, 1] = sqrt(variance(psi_or + ((Wm :-  Wmean) * (alphak - alpha0)), w) * (nobsw - 1) / nobsw^2)
-        psi_orm[.,j] = psi_or
-        psi_pom[.,j] = (psi_or + ((Wm :-  Wmean) * (alphak - alpha0)))
+        psi_or        = ((psi_alphak - psi_alpha0) * Wmean')
+        psi_orm[.,j]  = psi_or
+        psi_pom[.,j]  = psi_or + ((Wm :-  Wmean) * (alphak - alpha0))
+        if ( wtype == "fweight" ) {
+            se_or[j - 1, 1] = sqrt(variance(psi_or, w) * (nobsw - 1) / nobsw^2)
+            se_po[j - 1, 1] = sqrt(variance(psi_pom[.,j], w) * (nobsw - 1) / nobsw^2)
+        }
+        else {
+            se_or[j - 1, 1] = sqrt(variance(w :* psi_or) * (nobsw - 1) / nobsw^2)
+            se_po[j - 1, 1] = sqrt(variance(w :* psi_pom[.,j]) * (nobsw - 1) / nobsw^2)
+        }
 
         // One treatment at a time
         s    = selectindex(X0 :| Xm[., j])
@@ -174,13 +181,20 @@ void MulTE::estimates(
         Xdot            = Xm_s - Wm_s * multe_helper_olsw(Xm_s, Wm_s, w_s)
         rk              = multe_helper_olswr(Y_s, (Xdot, Wm_s), w_s)
         est[j - 1, 2]   = rk.coefficients[1]
-        se_po[j - 1, 2] = sqrt(sum(w_s :* (rk.residuals:^2) :* (Xdot:^2)) / sum(w_s :* (Xdot:^2)):^2)
-
-        eps = Xm_s :* (Y_s - Wm_s * alphak) +
-              X0_s :* (Y_s - Wm_s * alpha0)
-        se_or[j - 1, 2] = sqrt(sum(w_s :* (eps:^2) :* (Xdot:^2))/sum(w_s :* (Xdot:^2))^2)
-        var_po_onem[j, 1] = sum(w_s :* (rk.residuals:^2) :* (Xdot:^2)) / sum(w_s :* (Xdot:^2)):^2
-        var_or_onem[j, 1] = sum(w_s :* (eps:^2) :* (Xdot:^2)) / sum(w_s :* (Xdot:^2))^2
+        eps             = Xm_s :* (Y_s - Wm_s * alphak) +
+                          X0_s :* (Y_s - Wm_s * alpha0)
+        if ( wtype == "fweight" ) {
+            se_po[j - 1, 2] = sqrt(sum(w_s :* (rk.residuals:^2) :* (Xdot:^2)) / sum(w_s :* (Xdot:^2)):^2)
+            se_or[j - 1, 2] = sqrt(sum(w_s :* (eps:^2)          :* (Xdot:^2)) / sum(w_s :* (Xdot:^2))^2)
+            var_po_onem[j, 1] = sum(w_s :* (rk.residuals:^2) :* (Xdot:^2)) / sum(w_s :* (Xdot:^2)):^2
+            var_or_onem[j, 1] = sum(w_s :* (eps:^2)          :* (Xdot:^2)) / sum(w_s :* (Xdot:^2))^2
+        }
+        else {
+            se_po[j - 1, 2] = sqrt(sum((rk.residuals:^2) :* ((w_s :* Xdot):^2)) / sum(w_s :* (Xdot:^2)):^2)
+            se_or[j - 1, 2] = sqrt(sum((eps:^2)          :* ((w_s :* Xdot):^2)) / sum(w_s :* (Xdot:^2))^2)
+            var_po_onem[j, 1] = sum((rk.residuals:^2) :* ((w_s :* Xdot):^2)) / sum(w_s :* (Xdot:^2)):^2
+            var_or_onem[j, 1] = sum((eps:^2)          :* ((w_s :* Xdot):^2)) / sum(w_s :* (Xdot:^2))^2
+        }
 
         // common weights
         psi_or = lam :* (Xm[., j] :* (Y - Wm * alphak) :/ ps[., j] -
@@ -188,18 +202,34 @@ void MulTE::estimates(
         sk = Wm * multe_helper_olsw(rcres :* Xm[., j] :/ ps[., j] :* (lam:^2) :/ (ps:^2), Wm, w)
         psi_po = (lam :* rcres :* (Xm[., j] :/ ps[., j] - X0 :/ ps[., 1]) +
                   Xt[., 1] :* ts[., 1] - Xt[., j] :* ts[., j] + rowsum(Xt :* (sk - s0))) / mean(lam, w)
-        se_po[j-1, 3] = sqrt(variance(psi_po, w)*(nobsw-1)/nobsw^2)
-        se_or[j-1, 3] = sqrt(variance(psi_or, w)*(nobsw-1)/nobsw^2)
+        if ( wtype == "fweight" ) {
+            se_po[j-1, 3] = sqrt(variance(psi_po, w)*(nobsw-1)/nobsw^2)
+            se_or[j-1, 3] = sqrt(variance(psi_or, w)*(nobsw-1)/nobsw^2)
+        }
+        else {
+            se_po[j-1, 3] = sqrt(variance(psi_po :* w)*(nobsw-1)/nobsw^2)
+            se_or[j-1, 3] = sqrt(variance(psi_or :* w)*(nobsw-1)/nobsw^2)
+        }
         psi_pom[., j+(k*2)] = psi_po
         psi_orm[., j+(k*2)] = psi_or
     }
 
     // Compute vcov matrices
     // NOTE: Var(beta) = Var(psi)/n. That's why po_vcov has n^2 in the denominator and not n.
-    psi_pom_tl = psi_pom :- mean(psi_pom, w)
-    psi_orm_tl = psi_orm :- mean(psi_orm, w)
-    po_vcov    = cross(psi_pom_tl, w, psi_pom_tl) / (nobsw^2)
-    or_vcov    = cross(psi_orm_tl, w, psi_orm_tl) / (nobsw^2)
+    if ( wtype == "fweight" ) {
+        psi_pom_tl = psi_pom :- mean(psi_pom, w)
+        psi_orm_tl = psi_orm :- mean(psi_orm, w)
+        po_vcov    = cross(psi_pom_tl, w, psi_pom_tl) / (nobsw^2)
+        or_vcov    = cross(psi_orm_tl, w, psi_orm_tl) / (nobsw^2)
+    }
+    else {
+        psi_pom    = psi_pom :* w
+        psi_orm    = psi_orm :* w
+        psi_pom_tl = psi_pom :- mean(psi_pom)
+        psi_orm_tl = psi_orm :- mean(psi_orm)
+        po_vcov    = cross(psi_pom_tl, psi_pom_tl) / (nobsw^2)
+        or_vcov    = cross(psi_orm_tl, psi_orm_tl) / (nobsw^2)
+    }
 
     for(j=2; j<=k; j++) {
         po_vcov[j+k, j+k] = var_po_onem[j,1]
@@ -284,7 +314,7 @@ void function MulTE::decomposition(
     cache_load(Yvar, Tvar, Wvar, touse, wgt)
     nobs  = length(Y)
     if ( wtype == "aweight" ) w = nobs * w / sum(w)
-    nobsw = sum(w)
+    nobsw = (wtype == "fweight")? sum(w): nobs
     k     = cols(Xm)
     kw    = cols(Wm)
 
@@ -314,21 +344,6 @@ void function MulTE::decomposition(
     // NB: Given Wm and Xm are collections of non-overlapping
     // indicators, cross(WmXm, WmXm) and subsequent calculations
     // simplify. In teting, however, this was not necessarily faster.
-    //
-    // WW = colsum(WmXm)
-    // WD = diag(WW)
-    // for(j = 1; j < k; j++) {
-    //     j1 = kw + (j - 1) * kw + 1
-    //     j2 = kw + (j - 0) * kw
-    //     WD[|j1, 1 \ j2, (j2-j1+1)|] = diag(WW[|j1 \ j2|])
-    // }
-    // WD        = invsym(makesymmetric(WD))
-    // WY        = cross(WmXm, Y)
-    // ri_coef   = WD * WY
-    // gamma     = ri_coef[|(kw+1) \ kwx|]
-    // ri_res    = Y - WmXm * ri_coef
-    // psi_gamma = (ri_res :* (WmXm * WD))[|(1, kw+1) \ (nobs, kwx)|]
-    // rd        = multe_helper_olsr(WmXm[|(1, kw+1) \ (nobs, kwx)|], (Xm, Wm)) // delta
 
     // Sort columns by size
     ghelper = rowshape(colshape(J(kw, 1, 1::(k-1)), k-1)', kw * (k - 1))
@@ -342,11 +357,15 @@ void function MulTE::decomposition(
 
     // Standard errors
     for (j = 1; j < k; j++) {
-        rddX = multe_helper_olswr(Xm[., j], (multe_helper_antiselect(Xm, j), Wm), w)
-        ddX  = rddX.residuals // ddot(X)
-
-        deltak     = rd.coefficients[j, .]'
-        psi_deltak = ddX :* rd.residuals / sum(w :* (ddX:^2))
+        rddX   = multe_helper_olswr(Xm[., j], (multe_helper_antiselect(Xm, j), Wm), w)
+        ddX    = rddX.residuals // ddot(X)
+        deltak = rd.coefficients[j, .]'
+        if ( wtype == "fweight" ) {
+            psi_deltak = ddX :* rd.residuals / sum(w :* (ddX:^2))
+        }
+        else {
+            psi_deltak = (w :* ddX) :* rd.residuals / sum(w :* (ddX:^2))
+        }
 
         psi  = psi_deltak * (gamma :* M) + psi_gamma * (deltak :* M)
         estk = gamma' * (deltak :* M)
@@ -368,13 +387,24 @@ void function MulTE::decomposition(
             sum(ggi' * multe_helper_antiselect(deltak, j))
         )
 
-        se[j,.] = sqrt((
-            sum(w :* (rowsum(psi):^2)),
-            sum(w :* (psi[., j]:^2)),
-            sum(w :* (rowsum(multe_helper_antiselect(psi, j)):^2)),
-            sum(w :* (rowsum(multe_helper_antiselect(psimin, j)):^2)),
-            sum(w :* (rowsum(multe_helper_antiselect(psimax, j)):^2))
-        ))
+        if ( wtype == "fweight" ) {
+            se[j,.] = sqrt((
+                sum(w :* (rowsum(psi):^2)),
+                sum(w :* (psi[., j]:^2)),
+                sum(w :* (rowsum(multe_helper_antiselect(psi, j)):^2)),
+                sum(w :* (rowsum(multe_helper_antiselect(psimin, j)):^2)),
+                sum(w :* (rowsum(multe_helper_antiselect(psimax, j)):^2))
+            ))
+        }
+        else {
+            se[j,.] = sqrt((
+                sum(rowsum(psi):^2),
+                sum(psi[., j]:^2),
+                sum(rowsum(multe_helper_antiselect(psi, j)):^2),
+                sum(rowsum(multe_helper_antiselect(psimin, j)):^2),
+                sum(rowsum(multe_helper_antiselect(psimax, j)):^2)
+            ))
+        }
     }
 
     // Control-specific TEs and weights

@@ -1,4 +1,4 @@
-*! version 0.4.1 28Sep2022
+*! version 0.4.2 29Sep2022
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com> and Jerray Chang <jerray@bu.edu>

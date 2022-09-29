@@ -17,6 +17,7 @@ program main
     multe_unit_tests
     multe_replicate_tests
     multe_weight_tests
+    multe_weight_startest
 end
 
 main
