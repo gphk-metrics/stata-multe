@@ -191,7 +191,7 @@ program multe_weight_startest
     set seed 1729
     use test/example_star.dta, clear
     gen `c(obs_t)' G = _n
-    gen `c(obs_t)' _expand = ceil(runiform() * _N/50)
+    gen `c(obs_t)' _expand = ceil(runiform() * 10)
 
     multe score treatment             , control(school) mata(now)  decomp gen(lambda(lnow) tau(tnow))
     multe score treatment [aw=_expand], control(school) mata(aw)   decomp gen(lambda(law)  tau(taw))
@@ -319,7 +319,6 @@ program multe_weight_startest
     matrix table = r(table)
     matrix table = table[1..2,"ATE:"]
     mata table = st_matrix("table")
-    mata assert(max(reldif(ex.estimates.est[.,1], table[1,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(ex.estimates.est[.,1],   table[1,.]')) < (epsilon(1)^(3/4)))
     mata assert(max(reldif(ex.estimates.se_po[.,1], table[2,.]')) < (epsilon(1)^(3/4)))
-
 end
