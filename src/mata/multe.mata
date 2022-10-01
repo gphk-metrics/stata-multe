@@ -159,7 +159,7 @@ void MulTE::estimates(
         est[j - 1, 1] = (Wmean * (alphak - alpha0))
         psi_or        = ((psi_alphak - psi_alpha0) * Wmean')
         psi_orm[.,j]  = psi_or
-        psi_pom[.,j]  = psi_or + ((Wm :-  Wmean) * (alphak - alpha0))
+        psi_pom[.,j]  = psi_or + ((Wm :- Wmean) * (alphak - alpha0))
         if ( wtype == "fweight" ) {
             se_or[j - 1, 1] = sqrt(variance(psi_or, w) * (nobsw - 1) / nobsw^2)
             se_po[j - 1, 1] = sqrt(variance(psi_pom[.,j], w) * (nobsw - 1) / nobsw^2)
@@ -176,7 +176,6 @@ void MulTE::estimates(
         X0_s = X0[s]
         Y_s  = Y[s]
         w_s  = w[s]
-        if ( wtype == "aweight" ) w_s = length(Y_s) * w_s / sum(w_s)
 
         Xdot            = Xm_s - Wm_s * multe_helper_olsw(Xm_s, Wm_s, w_s)
         rk              = multe_helper_olswr(Y_s, (Xdot, Wm_s), w_s)
@@ -198,10 +197,11 @@ void MulTE::estimates(
 
         // common weights
         psi_or = lam :* (Xm[., j] :* (Y - Wm * alphak) :/ ps[., j] -
-                 X0 :* (Y - Wm * alpha0) :/ ps[., 1]) :/ mean(lam, w)
+                 X0 :* (Y - Wm * alpha0) :/ ps[., 1]) :/ ((wtype == "fweight")? mean(lam, w): mean(lam :* w))
         sk = Wm * multe_helper_olsw(rcres :* Xm[., j] :/ ps[., j] :* (lam:^2) :/ (ps:^2), Wm, w)
         psi_po = (lam :* rcres :* (Xm[., j] :/ ps[., j] - X0 :/ ps[., 1]) +
-                  Xt[., 1] :* ts[., 1] - Xt[., j] :* ts[., j] + rowsum(Xt :* (sk - s0))) / mean(lam, w)
+                  Xt[., 1] :* ts[., 1] - Xt[., j] :* ts[., j] + rowsum(Xt :* (sk - s0))) /
+                  ((wtype == "fweight")? mean(lam, w): mean(lam :* w))
         if ( wtype == "fweight" ) {
             se_po[j-1, 3] = sqrt(variance(psi_po, w)*(nobsw-1)/nobsw^2)
             se_or[j-1, 3] = sqrt(variance(psi_or, w)*(nobsw-1)/nobsw^2)
@@ -425,7 +425,7 @@ void function MulTE::decomposition(
     }
 
     delta_kl = rowshape(rowshape(rd.coefficients[1..(k-1),.], 1), (k-1)*(k-1))'
-    delta_pr = delta_kl :/ (mean(Wm, w)')
+    delta_pr = delta_kl :/ ((wtype == "fweight")? mean(Wm, w)': mean(Wm :* w)')
     gammam   = rowshape(gamma, k-1)
 
     this.decomposition.n            = nobs

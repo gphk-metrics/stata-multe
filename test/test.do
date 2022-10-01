@@ -19,5 +19,3 @@ program main
     multe_weight_tests
     multe_weight_startest
 end
-
-main
