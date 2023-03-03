@@ -12,16 +12,19 @@ program multe, eclass
         exit 0
     }
 
+    tempname Womit
     local 0bak: copy local 0
     syntax varlist(numeric fv ts min=2 max=2)  /// depvar treatment
            [if] [in] [aw fw],                  /// subset, weights
-        control(varlist)                       /// control variable
+        control(str)                           /// control variables
     [                                          ///
         vce(str)                               /// SEs to be displayed
         GENerate(str)                          /// save lambdas/taus
         MATAsave(str)                          /// Save resulting mata object
         DECOMPosition                          /// Compute and display decomposition
         minmax                                 /// Print full decomposition table
+        linear                                 /// Assume linear control specification
+        debug                                  /// misc debug checks
     ]
 
     local decomp1 = ("`decomposition'" != "")
@@ -39,6 +42,14 @@ program multe, eclass
     gettoken depvar treatment: varlist
     local depvar    `depvar'
     local treatment `treatment'
+
+    if ( "`linear'" == "" ) {
+        cap confirm variable `control'
+        if _rc {
+            disp as err "existing varlist required for option control()"
+            exit _rc
+        }
+    }
 
     * Mark if, in, and any missing values by obs
     local varlist `varlist' `control'
@@ -62,25 +73,44 @@ program multe, eclass
     qui levelsof `treatment' if `touse', loc(Tlevels)
     local Tk: list sizeof Tlevels
 
-    tempvar W Wtag Ttag Tuniq Tdrop
-    egen `c(obs_t)' `W'     = group(`control')
-    egen byte       `Wtag'  = tag(`W') if `touse'
-    egen byte       `Ttag'  = tag(`W' `treatment') if `touse'
-    egen double     `Tuniq' = sum(`Ttag') if `touse', by(`W')
-    gen byte `Tdrop' = (`Tuniq' < `Tk') if `touse'
-    cap assert `Tuniq' <= `Tk' if `touse'
-    if ( _rc ) {
-        disp as err "found more levels within a control strata than levels overall"
-        exit 9
-    }
+    if ( "`linear'" == "" ) {
+        tempvar W Wtag Ttag Tuniq Tdrop
+        egen `c(obs_t)' `W'     = group(`control')
+        egen byte       `Wtag'  = tag(`W') if `touse'
+        egen byte       `Ttag'  = tag(`W' `treatment') if `touse'
+        egen double     `Tuniq' = sum(`Ttag') if `touse', by(`W')
+        gen byte `Tdrop' = (`Tuniq' < `Tk') if `touse'
+        cap assert `Tuniq' <= `Tk' if `touse'
+        if ( _rc ) {
+            disp as err "found more levels within a control strata than levels overall"
+            exit 9
+        }
 
-    qui count if (`Wtag' == 1) & (`Tdrop' == 1) & `touse'
-    local nstrata = `r(N)'
-    qui count if (`Tdrop' == 1) & `touse'
-    local nobs = `r(N)'
-    qui replace `touse' = 0 if (`Tdrop' == 1)
-    if ( `nobs' | `nstrata' ) {
-        disp as txt "dropped `nstrata' control strata without sufficient overlap (`nobs' obs)"
+        qui count if (`Wtag' == 1) & (`Tdrop' == 1) & `touse'
+        local nstrata = `r(N)'
+        qui count if (`Tdrop' == 1) & `touse'
+        local nobs = `r(N)'
+        qui replace `touse' = 0 if (`Tdrop' == 1)
+        if ( `nobs' | `nstrata' ) {
+            disp as txt "dropped `nstrata' control strata without sufficient overlap (`nobs' obs)"
+        }
+
+        qui drop `W'
+        egen `c(obs_t)' `W' = group(`control') if `touse'
+    }
+    else {
+        local 0bak: copy local 0
+        local 0 `control'
+        cap syntax varlist(numeric fv ts)
+        if _rc {
+            disp as err "Numeric varlist required with option -lienar-"
+            exit _rc
+        }
+
+        helper_strip_omitted `control' if `touse'
+        matrix `Womit' = r(omit)
+        local 0: copy local 0bak
+        local W `r(expanded)'
     }
 
     qui count if `touse'
@@ -89,8 +119,6 @@ program multe, eclass
         exit 498
     }
 
-    qui drop `W'
-    egen `c(obs_t)' `W' = group(`control') if `touse'
     mata `results' = MulTE()
     mata `results'.estimates("`depvar'", "`treatment'", "`W'", "`touse'", "`wgt'", "`weight'")
     mata `results'.estimates.wgtvar = st_local("exp")
@@ -249,4 +277,25 @@ program FreeMatrix
             c_local `FM' MulTE`FreeCounter'
         }
     }
+end
+
+capture program drop helper_strip_omitted
+program helper_strip_omitted, rclass
+    syntax anything(equalok) [if], [extra(str) *]
+    _rmcoll `anything' `extra' `if', expand `options'
+    local expanded `r(varlist)'
+
+    tempname b omit final
+    matrix `b' = J(1, `:list sizeof expanded', .)
+    matrix colnames `b' = `expanded'
+    matrix `b' = `b'[1,1..(`:list sizeof expanded' - `:list sizeof extra')]
+
+    _ms_omit_info `b'
+    matrix `omit' = r(omit)
+    mata `final' = select(st_matrixcolstripe("`b'")[., 2]', !st_matrix("r(omit)"))
+    mata st_local("varlist", invtokens(cols(`final')? `final': ""))
+
+    return local expanded: copy local expanded
+    return local varlist:  copy local varlist
+    return matrix omit =  `omit'
 end

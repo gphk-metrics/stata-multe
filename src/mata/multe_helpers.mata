@@ -11,20 +11,23 @@ struct multe_helper_results {
     real matrix residuals
 }
 
+// invsym(cross(X, X)) * cross(X, Y)
 real matrix function multe_helper_ols(real matrix Y, real matrix X)
 {
-    return(invsym(cross(X, X)) * cross(X, Y))
+    return(qrsolve(X, Y))
 }
 
 real matrix function multe_helper_olsw(real matrix Y, real matrix X, real matrix W)
 {
-    return(qrinv(cross(X :* W, X)) * cross(X :* W, Y))
+    // qrsolve is more precise but less stable somehow
+    // return(min(W) < 0? qrinv(cross(X, W, X)) * cross(X, W, Y): qrsolve(sqrt(W) :* X, sqrt(W) :* Y))
+    return(qrinv(cross(X, W, X)) * cross(X, W, Y))
 }
 
 struct multe_helper_results scalar function multe_helper_olsr(real matrix Y, real matrix X)
 {
     struct multe_helper_results scalar results
-    results.coefficients = invsym(cross(X, X)) * cross(X, Y)
+    results.coefficients = multe_helper_ols(Y, X)
     results.residuals    = Y - X * results.coefficients
     return(results)
 }
@@ -32,7 +35,7 @@ struct multe_helper_results scalar function multe_helper_olsr(real matrix Y, rea
 struct multe_helper_results scalar function multe_helper_olswr(real matrix Y, real matrix X, real matrix W)
 {
     struct multe_helper_results scalar results
-    results.coefficients = qrinv(cross(X :* W, X)) * cross(X :* W, Y)
+    results.coefficients = multe_helper_olsw(Y, X, W)
     results.residuals    = Y - X * results.coefficients
     return(results)
 }

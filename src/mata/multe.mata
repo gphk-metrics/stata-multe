@@ -15,6 +15,7 @@ class MulTE
     class MulTE_Estimates scalar estimates
     class MulTE_Decomposition scalar decomposition
 
+    real scalar linear
     real scalar cache
     real vector Y
     real vector w
@@ -61,6 +62,8 @@ class MulTE_Decomposition
     real scalar n
     real scalar nw
     real scalar k
+    real colvector debug_own
+    real colvector debug_bias
     real matrix est
     real matrix se
     real matrix tmp
@@ -90,7 +93,8 @@ class MulTE_Decomposition
 
 void function MulTE::new()
 {
-    cache = 0
+    cache  = 0
+    linear = st_local("linear") != ""
 }
 
 void MulTE::estimates(
@@ -266,10 +270,10 @@ void function MulTE::cache_load(
 {
     real scalar j
     real vector X
+    real vector omit
 
     if ( cache ) return
 
-    Wm = designmatrix(st_data(., Wvar, touse))
     Y  = st_data(., Yvar, touse)
     X  = st_data(., Tvar, touse)
     w  = wgt == ""? J(length(Y), 1, 1): st_data(., wgt, touse)
@@ -277,6 +281,19 @@ void function MulTE::cache_load(
     Xm = J(rows(Y), length(xlevels), 0)
     for (j = 1; j <= length(xlevels); j++) {
         Xm[., j] = (X :== xlevels[j])
+    }
+
+    if ( linear ) {
+        omit = st_matrix(st_local("Womit"))
+        if ( length(omit) ) {
+            Wm = select(st_data(., Wvar, touse), !omit), J(length(Y), 1, 1)
+        }
+        else {
+            Wm = st_data(., Wvar, touse), J(length(Y), 1, 1)
+        }
+    }
+    else {
+        Wm = designmatrix(st_data(., Wvar, touse))
     }
 
     cache = 1
@@ -299,7 +316,7 @@ void function MulTE::decomposition(
     string scalar wgt,
     string scalar wtype)
 {
-    struct multe_helper_results scalar ri, rd, rddX
+    struct multe_helper_results scalar ri, rd, rddX, check
     string vector lambda_names, tauhat_names
 
     real scalar i, l, j, nobs, nobsw, k, kw, kwx, j1, j2
@@ -307,6 +324,7 @@ void function MulTE::decomposition(
     real matrix est, estk, se, psimin, psimax
     real matrix delta_kl, delta_pr, gammam
     real matrix ggi, ggd, psigi, psigd
+    real matrix lam, tau
     real vector ghelper, gi, gd, di
 
     if ( this.decomposition.run ) return
@@ -340,6 +358,15 @@ void function MulTE::decomposition(
     rd = multe_helper_olswr(WmXm[|(1, kw+1) \ (nobs, cols(WmXm))|], (Xm, Wm), w)
     psi_gamma = ((ri.residuals :* WmXm) *
                   invsym(cross(WmXm, w, WmXm)))[|(1, kw+1) \ (nobs, cols(WmXm))|]
+
+    // Check using equations 25-27 directly
+    if ( st_local("debug") != "" ) {
+        check = multe_helper_olswr(Xm, Wm, w)
+        lam   = check.residuals * invsym(cross(check.residuals, w, check.residuals))
+        tau   = Wm * colshape(gamma, kw)'
+        this.decomposition.debug_own  = colsum(lam :* tau :* Xm :* w)'
+        this.decomposition.debug_bias = colsum((lam :* (1 :- Xm)) :* rowsum(tau :* Xm) :* w)'
+    }
 
     // NB: Given Wm and Xm are collections of non-overlapping
     // indicators, cross(WmXm, WmXm) and subsequent calculations
