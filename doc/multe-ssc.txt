@@ -1,5 +1,5 @@
 Name: multe
-Version: 0.4.2
+Version: 0.5.0
 Depends: Stata 14.1 or later
 Author: [Paul Goldsmith-Pinkham, Peter Hull, Michal Kolesár]
 Support: [email]
