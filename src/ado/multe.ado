@@ -12,10 +12,10 @@ program multe, eclass
         exit 0
     }
 
-    tempname Womit
+    tempname Womit TWomit Wref TWref
     local 0bak: copy local 0
     syntax varlist(numeric fv ts min=2 max=2)  /// depvar treatment
-           [if] [in] [aw fw],                  /// subset, weights
+           [if] [in] [aw fw pw],               /// subset, weights
         control(str)                           /// control variables
     [                                          ///
         vce(str)                               /// SEs to be displayed
@@ -23,8 +23,10 @@ program multe, eclass
         MATAsave(str)                          /// Save resulting mata object
         DECOMPosition                          /// Compute and display decomposition
         minmax                                 /// Print full decomposition table
+        overlap                                /// Force overlap (single categorical control only)
         linear                                 /// Assume linear control specification
         debug                                  /// misc debug checks
+        flexible                               /// flexible decomposition
     ]
 
     local decomp1 = ("`decomposition'" != "")
@@ -50,16 +52,23 @@ program multe, eclass
             exit _rc
         }
     }
+    else if ( "`overlap'" != "" ) {
+        disp as err "option overlap cannot be used with option linear"
+        exit 198
+    }
 
     * Mark if, in, and any missing values by obs
+    local wbak: copy local weight
     local varlist `varlist' `control'
 	if ( `"`weight'"' != "" ) {
 		tempvar touse wgt
 		qui gen double `wgt' `exp' `if' `in'
-        mark `touse' `if' `in' [`weight'=`wgt']
+        local wcall [`weight'=`wgt']
+        mark `touse' `if' `in' `wcall'
         markout `touse' `varlist', strok
 	}
     else {
+        local wcall
         local wgt
         marksample touse, strok
     }
@@ -73,32 +82,41 @@ program multe, eclass
     qui levelsof `treatment' if `touse', loc(Tlevels)
     local Tk: list sizeof Tlevels
 
+    tempvar T W Wtag Ttag Tuniq Tdrop
     if ( "`linear'" == "" ) {
-        tempvar W Wtag Ttag Tuniq Tdrop
-        egen `c(obs_t)' `W'     = group(`control')
-        egen byte       `Wtag'  = tag(`W') if `touse'
-        egen byte       `Ttag'  = tag(`W' `treatment') if `touse'
-        egen double     `Tuniq' = sum(`Ttag') if `touse', by(`W')
-        gen byte `Tdrop' = (`Tuniq' < `Tk') if `touse'
+        qui {
+            egen `c(obs_t)' `W'     = group(`control')     if `touse'
+            egen byte       `Wtag'  = tag(`W')             if `touse'
+            egen byte       `Ttag'  = tag(`W' `treatment') if `touse'
+            egen double     `Tuniq' = sum(`Ttag')          if `touse', by(`W')
+            gen byte `Tdrop' = (`Tuniq' < `Tk')            if `touse'
+        }
         cap assert `Tuniq' <= `Tk' if `touse'
         if ( _rc ) {
             disp as err "found more levels within a control strata than levels overall"
             exit 9
         }
 
-        qui count if (`Wtag' == 1) & (`Tdrop' == 1) & `touse'
-        local nstrata = `r(N)'
-        qui count if (`Tdrop' == 1) & `touse'
-        local nobs = `r(N)'
-        qui replace `touse' = 0 if (`Tdrop' == 1)
-        if ( `nobs' | `nstrata' ) {
-            disp as txt "dropped `nstrata' control strata without sufficient overlap (`nobs' obs)"
+        if ( "`overlap'" != "" ) {
+            qui count if (`Wtag' == 1) & (`Tdrop' == 1) & `touse'
+            local nstrata = `r(N)'
+            qui count if (`Tdrop' == 1) & `touse'
+            local nobs = `r(N)'
+            qui replace `touse' = 0 if (`Tdrop' == 1)
+            if ( `nobs' | `nstrata' ) {
+                disp as txt "dropped `nstrata' control strata without sufficient overlap (`nobs' obs)"
+            }
+            qui drop `W'
+            qui egen `c(obs_t)' `W' = group(`control') if `touse'
         }
 
-        qui drop `W'
-        egen `c(obs_t)' `W' = group(`control') if `touse'
+        qui egen `c(obs_t)' `T' = group(`treatment') if `touse'
+        fvexpand ibn.`W' if `touse'
+        local Wi `r(varlist)'
     }
     else {
+        qui egen `c(obs_t)' `T' = group(`treatment') if `touse'
+
         local 0bak: copy local 0
         local 0 `control'
         cap syntax varlist(numeric fv ts)
@@ -107,16 +125,52 @@ program multe, eclass
             exit _rc
         }
 
-        helper_strip_omitted `control' if `touse'
+        helper_reference_omitted `control' if `touse'
+        matrix `Wref' = r(omit)
+        helper_strip_omitted `control' if `touse' `wcall', extra(b1.`T')
         matrix `Womit' = r(omit)
         local 0: copy local 0bak
+        local weight: copy local wbak
         local W `r(expanded)'
+
+        tempvar cons
+        qui gen byte `cons' = 1
+        mata st_local("Wi", any(!st_matrix(st_local("Womit")))? invtokens(select(tokens(st_local("W")), !st_matrix(st_local("Womit")))): "")
+        local Wi `cons' `Wi'
     }
 
     qui count if `touse'
     if ( `r(N)' == 0 ) {
         disp as txt "insufficient observations for estimation"
         exit 498
+    }
+
+    * Interaction collinearity check (might still be able to run everything)
+    * local base = 1
+    * local TiWi
+    * foreach Tj of local Tlevels {
+    *     if ( `base' ) {
+    *         local TiWi `TiWi' `Tj'bn.`treatment'#c.(`Wi')
+    *     }
+    *     else {
+    *         local TiWi `TiWi' `Tj'.`treatment'#c.(`Wi')
+    *     }
+    * }
+    * helper_strip_omitted `TiWi' if `touse' `wcall', noconstant
+    * matrix `TWomit' = r(omit)
+    * local TW `r(expanded)'
+    disp _n(1) "Checking for collinear columns in interacted specification..."
+    helper_reference_omitted ibn.`T'#c.(`Wi') if `touse'
+    matrix `TWref' = r(omit)
+    helper_strip_omitted ibn.`T'#c.(`Wi') if `touse' `wcall', noconstant
+    matrix `TWomit' = r(omit)
+    local TW `r(expanded)'
+
+    mata {
+        if ( any(select(st_matrix(st_local("TWomit")), st_matrix(st_local("TWref")))) ) {
+            printf("(note: temp variable `T' was created for the collinearity check and\n")
+            printf("contains factors 1 through `Tk' corresponding to the levels of `treatment')\n")
+        }
     }
 
     mata `results' = MulTE()
@@ -175,10 +229,10 @@ program LambdaTau
         mata: `types' = J(1, cols(`names'), "`:set type'")
         mata: (void) st_addvar(`types', `names')
         if "`touse'" != "" {
-            mata: (void) st_store(., `names', "`touse'", `results'.decomposition.lambda(`results'.Wm))
+            mata: (void) st_store(., `names', "`touse'", `results'.decomposition.lambda(`results'.Xm, `results'.Wm, `results'.w))
         }
         else {
-            mata: (void) st_store(., `names', `results'.decomposition.lambda(`results'.Wm))
+            mata: (void) st_store(., `names', `results'.decomposition.lambda(`results'.Xm, `results'.Wm, `results'.w))
         }
     }
 
@@ -222,12 +276,12 @@ capture program drop Decomposition
 program Decomposition
     syntax, [*]
     tempvar touse W
-    gen byte `touse' = e(sample)
+    qui gen byte `touse' = e(sample)
     if "`e(wexp)'" != "" {
         tempvar wgt
         qui gen double `wgt' `e(wexp)' if `touse'
     }
-    egen `c(obs_t)' `W' = group(`e(control)') if `touse'
+    qui egen `c(obs_t)' `W' = group(`e(control)') if `touse'
     mata `e(mata)'.cache_load("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'", "`wgt'")
     mata `e(mata)'.decomposition("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'", "`wgt'", "`e(wtype)'")
     LambdaTau, results(`e(mata)') `options' touse(`touse')
@@ -237,7 +291,7 @@ end
 capture program drop Display
 program Display, eclass
     syntax namelist(max = 1), [vce(str) touse(str) repost *]
-    mata printf("\nTreatment Effect Estimates\n")
+    * mata printf("\nTreatment Effect Estimates\n")
     if "`post'" == "" local post post
     FreeMatrix b V
     mata `namelist'.estimates.post("`b'", "`V'", "`vce'")
@@ -253,6 +307,8 @@ program Display, eclass
     else ereturn local vcetype ""
     ereturn local vce `vce'
 
+    _coef_table_header, nomodeltest title(Treatment Effect Estimates)
+    disp ""
     _coef_table, noempty `options'
     //     level(95)
     //     bmatrix(`b')      // e(b)
@@ -279,21 +335,43 @@ program FreeMatrix
     }
 end
 
-capture program drop helper_strip_omitted
-program helper_strip_omitted, rclass
-    syntax anything(equalok) [if], [extra(str) *]
-    _rmcoll `anything' `extra' `if', expand `options'
+capture program drop helper_reference_omitted
+program helper_reference_omitted, rclass
+    syntax anything(equalok) [if] [in]
+    fvexpand `anything' `if' `in'
     local expanded `r(varlist)'
 
-    tempname b omit final
+    tempname b omit
     matrix `b' = J(1, `:list sizeof expanded', .)
     matrix colnames `b' = `expanded'
-    matrix `b' = `b'[1,1..(`:list sizeof expanded' - `:list sizeof extra')]
+
+    _ms_omit_info `b'
+    matrix `omit' = r(omit)
+
+    return local expanded: copy local expanded
+    return matrix omit = `omit'
+end
+
+capture program drop helper_strip_omitted
+program helper_strip_omitted, rclass
+    syntax anything(equalok) [if] [aw fw pw], [extra(str) *]
+	if ( `"`weight'"' != "" ) local wcall [`weight' `exp']
+    fvexpand `extra'
+    local extra `r(varlist)'
+    _rmcoll `extra' `anything' `if' `wcall', expand `options'
+    local expanded `r(varlist)'
+
+    tempname b omit final keep
+    mata `keep' = (`:list sizeof extra'+1)..`:list sizeof expanded'
+    matrix `b' = J(1, `:list sizeof expanded', .)
+    matrix colnames `b' = `expanded'
+    matrix `b' = `b'[1,(`:list sizeof extra'+1)..`:list sizeof expanded']
 
     _ms_omit_info `b'
     matrix `omit' = r(omit)
     mata `final' = select(st_matrixcolstripe("`b'")[., 2]', !st_matrix("r(omit)"))
-    mata st_local("varlist", invtokens(cols(`final')? `final': ""))
+    mata st_local("varlist",  invtokens(cols(`final')? `final': ""))
+    mata st_local("expanded", invtokens(tokens(st_local("expanded"))[`keep']))
 
     return local expanded: copy local expanded
     return local varlist:  copy local varlist

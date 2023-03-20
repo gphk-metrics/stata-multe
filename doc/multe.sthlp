@@ -9,7 +9,7 @@
 {title:Title}
 
 {p2colset 5 14 14 2}{...}
-{p2col :{cmd:multe} {hline 2}}Multiple Treatment Effects regression with saturated group control{p_end}
+{p2col :{cmd:multe} {hline 2}}Multiple Treatment Effects regression with controls{p_end}
 {p2colreset}{...}
 
 {marker syntax}{...}
@@ -18,7 +18,7 @@
 {pstd}
 Multiple treatment effects regression. Given a multi-valued treatment, a saturated group variable (or a {varlist} which will be used to create a single, saturated
 group variable), and a dependent variable, {cmd:multe} computes equal-weighted (ATE), variance-weighted, efficiently-weighted treatment effects estimates
-and (optionally) contamination bias decomposition as in Goldsmith-Pinkham et al. (2022).
+and (optionally) contamination bias decomposition as in Goldsmith-Pinkham et al. (2022). (The user can alternatively force linearity and specify arbitrary linear controls.)
 
 {p 8 15 2}
 {cmd:multe}
@@ -39,9 +39,13 @@ and (optionally) contamination bias decomposition as in Goldsmith-Pinkham et al.
 {p_end}
 {synopt :{opt mata:save(str)}} Name of mata object with results (default: multe_results).
 {p_end}
+{synopt :{opt overlap}} Force overlap within control (not available with {opt linear}).
+{p_end}
+{synopt :{opt linear}} Assume linearity and treat {opt control()} as a linear varlist.
+{p_end}
 {synopt :{opt decomp:osition}} Optionally compute contamination bias decomposition. (Can be computed after main function run.)
 {p_end}
-{synopt :{opt gen:erate(options)}} Optionally save tau (saturated group-specific treatment effects) and/or lambda (implicit ATE regression weights); computes bias decomposition
+{synopt :{opt gen:erate(options)}} Optionally save tau (control-specific treatment effects) and/or lambda (implicit ATE regression weights); computes bias decomposition
 internally. (Can be computed after main function run.) See {it:{help multe##gen_options:generate options}}.
 {p_end}
 
@@ -66,13 +70,13 @@ sum of the weights adds up to the number of observations.
 {title:Description}
 
 {pstd}
-{cmd:multe} computes three types of weighted-average treatment effects in settings with multiple treatments and a saturated group control, within which treatment is as-good-as-randomly
+{cmd:multe} computes three types of weighted-average treatment effects in settings with multiple treatments and a saturated group control (defaut), within which treatment is as-good-as-randomly
 assigned. These are the equal-weighted averages (i.e. average treatment effects), treatment-specific variance-weighted averages (as in Angrist et al. (1998)), and comparable efficiently
-weighted averages (as in Goldsmith-Pinkham et al. (2022)).
+weighted averages (as in Goldsmith-Pinkham et al. (2022)). (With option {opt linear}, the user can force linearity and alternatively specify arbitrary linear controls through {opt control()}.)
 
 {pstd}
 {cmd:multe} can optionally compute and save a decomposition of regression estimates of treatment effects into an own-effect weighted average and a contamination bias term, following
-Goldsmith-Pinkham et al. (2022). It also provides an option to save the implicit ATE regression weights (lambda) and/or the saturated group-specific treatment effects (tau) as variables
+Goldsmith-Pinkham et al. (2022). It also provides an option to save the implicit ATE regression weights (lambda) and/or the control-specific (by debault the saturated group-specific) treatment effects (tau) as variables
 (see {it:{help multe##options:options}} for details). Results are saved in {cmd:e()} (see {it:{help multe##results:stored results}} below for details).
 
 {pstd}
@@ -81,8 +85,7 @@ Heteroskedasticity-robust standard errors (default) and heteroskedasticity-robus
 {pstd}
 The {depvar} and {it:treatment} can be any numeric variables. However, each unique value of the {it:treatment} variable is taken as a distinct level of the treatment. The lowest value of
 {it:treatment} is picked to be the control group. The {cmd:control} variables can be numeric or string, but should define a series of categories ({cmd:multe} will turn the controls into a
-single, saturated group variable). Groups which do not satisfy overlap (i.e. the number of unique treatment levels in that group is less than the total number of unique treatment levels)
-will be dropped.
+single, saturated group variable unless option {opt linear} is specified).
 
 {pstd}
 For a detailed theoretical discussion of calculations done by {cmd:multe}, see Goldsmith-Pinkham et al. (2022). Examples are provided below, including the Project STAR
@@ -99,6 +102,10 @@ propensity score for each treatment level as known.
 {phang}{opth mata:save(str)} supplies an alternative name for the mata structure which stores all estimates and variables in mata (default name is "multe_results").
 Note this is in addition to results stored in {cmd:e()}; see {it:{help multe##results:stored results}} below for details.
 
+{phang}{opt overlap} Groups which do not satisfy overlap (i.e. the number of unique treatment levels in that group is less than the total number of unique treatment levels) will be dropped. Not available with option {opt linear}.
+
+{phang}{opt linear} With this option the user can force linearity and specify an arbitrary varlist in {opt control()}.
+
 {phang}{opt decomp:osition} computes contamination bias decomposition as in Goldsmith-Pinkham et al. (2022). This is computationally intensive and is therefore not computed by default.
 The user can compute the decomposition interactively using the most recent {cmd:multe} results via {cmd:multe, decomposition}.
 
@@ -110,7 +117,7 @@ would generate them with custom names. The user can generate these interactively
 
 {phang}{cmd:lambda}[{cmd:(}str{cmd:)}] saves the set of implicit ATE regression weights as variables and optionally specifies an alternative prefix. The default prefix is "lambda".
 
-{phang}{cmd:tau}[{cmd:(}str{cmd:)}] saves the saturated group-specific treatment effects as variables and optionally specifies an alternative prefix. The default prefix is "tau".
+{phang}{cmd:tau}[{cmd:(}str{cmd:)}] saves the the control-specific (by debault the saturated group-specific) treatment effects as variables and optionally specifies an alternative prefix. The default prefix is "tau".
 
 {marker example}{...}
 {title:Example 1: Generated data}
@@ -217,6 +224,12 @@ In addition, the following data are available in {cmd:e(mata)} (default name: mu
         real matrix estimates.se_or
             (k-1) by 3 matrix of heteroskedasticity-robust standard errors treating treatment propensity scores as known
 
+        real matrix estimates.po_vcov
+            3k by 3k heteroskedasticity-robust vcov matrix
+
+        real matrix estimates.or_vcov
+            3k by 3k heteroskedasticity-robust vcov matrix treating propensity scores as known
+
         real vector estimates.Tvalues
             k by 1 vector with treatment levels
 
@@ -256,11 +269,11 @@ In addition, the following data are available in {cmd:e(mata)} (default name: mu
         string vector decomposition.lambda_names
             variable names for lambda
 
-        real matrix decomposition.tauhat(real matrix Wm)
-            compute tauhat from matrix of dummies corresponding to control
+        real matrix decomposition.tauhat(real matrix Xm, real matrix Wm, real vector w)
+            compute tauhat from treatment design matrix and design matrix with controls
 
         real matrix decomposition.lambda(real matrix Wm)
-            compute lambda from matrix of dummies corresponding to control
+            compute lambda from design matrix with controls
 
 {marker references}{...}
 {title:References}
