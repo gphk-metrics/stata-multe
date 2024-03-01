@@ -1,4 +1,6 @@
 library(readstata13)
+library(multe)
+
 data_dir <- paste0("~/Dropbox/GPH_ExaminerDesign", "/Applications/STAR/Data/STARgk_Lambdas.dta")
 dt <- readstata13::read.dta13(data_dir, generate.factors=TRUE)
 dt$treatment <- "regular"
@@ -18,3 +20,6 @@ print(knitr::kable(rg))
 ret <- decomposition(dt$score, dt$treatment, Wm)
 print(ret)
 print(decomposition2(dt$score, dt$treatment, Wm))
+
+# r1 <- stats::lm(score ~ treatment + factor(school), data=dt)
+# m1 <- multe(r1, "treatment", cluster=dt$school)

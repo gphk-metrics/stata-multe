@@ -1,4 +1,4 @@
-*! version 0.5.0 20Mar2023
+*! version 1.0.0 29Feb2024
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com> and Jerray Chang <jerray@bu.edu>
@@ -7,136 +7,58 @@ capture program drop multe
 program multe, eclass
     version 14.1
 
-    if replay() {
-        Replay `0'
-        exit 0
-    }
+    * xx if replay() {
+    * xx     Replay `0'
+    * xx     exit 0
+    * xx }
 
-    tempname Womit TWomit Wref TWref
-    local 0bak: copy local 0
-    syntax varlist(numeric fv ts min=2 max=2)  /// depvar treatment
-           [if] [in] [aw fw pw],               /// subset, weights
-        control(str)                           /// control variables
-    [                                          ///
-        vce(str)                               /// SEs to be displayed
-        GENerate(str)                          /// save lambdas/taus
-        MATAsave(str)                          /// Save resulting mata object
-        DECOMPosition                          /// Compute and display decomposition
-        minmax                                 /// Print full decomposition table
-        overlap                                /// Force overlap (single categorical control only)
-        linear                                 /// Assume linear control specification
-        debug                                  /// misc debug checks
-        flexible                               /// flexible decomposition
+    syntax varlist(numeric fv ts) /// depvar controls (sans stratum)
+           [if] [in] [aw pw],     /// subset, weights
+        TREATment(varname)        /// treatment variable
+    [                             ///
+        STRATum(varname)          /// stratum name
+        cluster(varname)          /// cluster by
+        CW_uniform                ///
+        GENerate(str)             /// save lambdas/taus
+        MATAsave(str)             /// Save resulting mata object
+        debug                     ///
     ]
+    * absorb(str) /// absorb var(s)
 
-    local decomp1 = ("`decomposition'" != "")
-    local decomp2 = (`"`generate'"'    != "")
-    local decomp3 = (`"`minmax'"'      != "")
-    local decomp  = `decomp1' | `decomp2'
+    * NB: Sometimes Stata idiosyncrasies drive me to madness.  For example,
+    * in this case to read the correct set of variables used in an interacted
+    * regression into mata, I have to introduce a fake interaction with a
+    * constant, lest Stata automagically exclude a base level for mata that it
+    * actually included in the regression. Is Stata Basilio, keeping me locked
+    * in the tower, punishing me for the mere crime of daring to code?
 
-    local vce `vce'
-    if !inlist("`vce'", "", "oracle") {
-        disp as err "vce() option `vce' not known"
-        exit 198
-    }
+    tempvar cons cons2
+    gen byte `cons'  = 1
+    gen byte `cons2' = 1
+    gettoken Y X: varlist
+    local Xbak: copy local X
+    local Y `Y'
+    local X `cons' `X'
 
-    * Varlist must be depvar and indepvar
-    gettoken depvar treatment: varlist
-    local depvar    `depvar'
-    local treatment `treatment'
-
-    if ( "`linear'" == "" ) {
-        cap confirm variable `control'
-        if _rc {
-            disp as err "existing varlist required for option control()"
-            exit _rc
-        }
-    }
-    else if ( "`overlap'" != "" ) {
-        disp as err "option overlap cannot be used with option linear"
+    if ( (`"`X'"' == "") & (`"`stratum'"' == "") ) {
+        disp as err "no controls; add covariates or specify -stratum()-"
         exit 198
     }
 
     * Mark if, in, and any missing values by obs
+    local varlist `varlist' `treatment' `stratum'
     local wbak: copy local weight
-    local varlist `varlist' `control'
-	if ( `"`weight'"' != "" ) {
-		tempvar touse wgt
-		qui gen double `wgt' `exp' `if' `in'
+    if ( `"`weight'"' != "" ) {
+        tempvar touse wgt
+        qui gen double `wgt' `exp' `if' `in'
         local wcall [`weight'=`wgt']
         mark `touse' `if' `in' `wcall'
         markout `touse' `varlist', strok
-	}
+    }
     else {
         local wcall
         local wgt
         marksample touse, strok
-    }
-
-    * Copy to mata for mata fun
-    if "`matasave'" == "" local results multe_results
-    else local results: copy local matasave
-
-    * Check each control strata has all treatment levels
-    * NB: This seems inefficient but doesn't in practice take very long
-    qui levelsof `treatment' if `touse', loc(Tlevels)
-    local Tk: list sizeof Tlevels
-
-    tempvar T W Wtag Ttag Tuniq Tdrop
-    if ( "`linear'" == "" ) {
-        qui {
-            egen `c(obs_t)' `W'     = group(`control')     if `touse'
-            egen byte       `Wtag'  = tag(`W')             if `touse'
-            egen byte       `Ttag'  = tag(`W' `treatment') if `touse'
-            egen double     `Tuniq' = sum(`Ttag')          if `touse', by(`W')
-            gen byte `Tdrop' = (`Tuniq' < `Tk')            if `touse'
-        }
-        cap assert `Tuniq' <= `Tk' if `touse'
-        if ( _rc ) {
-            disp as err "found more levels within a control strata than levels overall"
-            exit 9
-        }
-
-        if ( "`overlap'" != "" ) {
-            qui count if (`Wtag' == 1) & (`Tdrop' == 1) & `touse'
-            local nstrata = `r(N)'
-            qui count if (`Tdrop' == 1) & `touse'
-            local nobs = `r(N)'
-            qui replace `touse' = 0 if (`Tdrop' == 1)
-            if ( `nobs' | `nstrata' ) {
-                disp as txt "dropped `nstrata' control strata without sufficient overlap (`nobs' obs)"
-            }
-            qui drop `W'
-            qui egen `c(obs_t)' `W' = group(`control') if `touse'
-        }
-
-        qui egen `c(obs_t)' `T' = group(`treatment') if `touse'
-        fvexpand ibn.`W' if `touse'
-        local Wi `r(varlist)'
-    }
-    else {
-        qui egen `c(obs_t)' `T' = group(`treatment') if `touse'
-
-        local 0bak: copy local 0
-        local 0 `control'
-        cap syntax varlist(numeric fv ts)
-        if _rc {
-            disp as err "Numeric varlist required with option -lienar-"
-            exit _rc
-        }
-
-        helper_reference_omitted `control' if `touse'
-        matrix `Wref' = r(omit)
-        helper_strip_omitted `control' if `touse' `wcall', extra(b1.`T')
-        matrix `Womit' = r(omit)
-        local 0: copy local 0bak
-        local weight: copy local wbak
-        local W `r(expanded)'
-
-        tempvar cons
-        qui gen byte `cons' = 1
-        mata st_local("Wi", any(!st_matrix(st_local("Womit")))? invtokens(select(tokens(st_local("W")), !st_matrix(st_local("Womit")))): "")
-        local Wi `cons' `Wi'
     }
 
     qui count if `touse'
@@ -145,212 +67,224 @@ program multe, eclass
         exit 498
     }
 
-    * Interaction collinearity check (might still be able to run everything)
-    * local base = 1
-    * local TiWi
-    * foreach Tj of local Tlevels {
-    *     if ( `base' ) {
-    *         local TiWi `TiWi' `Tj'bn.`treatment'#c.(`Wi')
-    *     }
-    *     else {
-    *         local TiWi `TiWi' `Tj'.`treatment'#c.(`Wi')
-    *     }
-    * }
-    * helper_strip_omitted `TiWi' if `touse' `wcall', noconstant
-    * matrix `TWomit' = r(omit)
-    * local TW `r(expanded)'
-    disp _n(1) "Checking for collinear columns in interacted specification..."
-    helper_reference_omitted ibn.`T'#c.(`Wi') if `touse'
-    matrix `TWref' = r(omit)
-    helper_strip_omitted ibn.`T'#c.(`Wi') if `touse' `wcall', noconstant
-    matrix `TWomit' = r(omit)
-    local TW `r(expanded)'
+    * Copy to mata for mata fun
+    if `"`matasave'"' == "" local results multe_results
+    else local results: copy local matasave
 
-    mata {
-        if ( any(select(st_matrix(st_local("TWomit")), st_matrix(st_local("TWref")))) ) {
-            printf("(note: temp variable `T' was created for the collinearity check and\n")
-            printf("contains factors 1 through `Tk' corresponding to the levels of `treatment')\n")
+    * Encode variables for internal use
+    qui levelsof `treatment' if `touse', loc(Tlevels)
+    local Tk: list sizeof Tlevels
+
+    tempvar T W C
+    qui egen `c(obs_t)' `T' = group(`treatment') if `touse'
+    if ( `"`stratum'"' != "" ) {
+        qui egen `c(obs_t)' `W' = group(`stratum') if `touse'
+        local Wi i.`W'
+
+        qui levelsof `stratum' if `touse', loc(Slevels)
+        local Sk: list sizeof Slevels
+    }
+    else {
+        local Wi
+        local Sk = 1
+    }
+
+    if ( `"`cluster'"' != "" ) {
+        qui egen `c(obs_t)' `C' = group(`cluster') if `touse'
+        local cluster: copy local C
+    }
+
+    * Get omitted varlist
+    tempname zomit zomitbase
+    helper_strip_omitted `X' `Wi' if `touse' `wcall', noconstant extra(b1.`T')
+    local zfull  `r(expanded)'
+    local zindep `r(varlist)'
+    local zreg   `r(regress)'
+    matrix `zomit'     = r(omit)
+    matrix `zomitbase' = r(omitbase)
+    foreach var of local zfull {
+        if regexm("`var'", "([0-9]+).*o\.(.+)") {
+            mata st_local("map", tokens(st_local("Slevels"))[`=regexs(1)'])
+            local name = regexs(2)
+            if ( `"`stratum'"' != "" ) {
+                local name: subinstr local name "`W'" "`stratum'"
+            }
+            disp "note: `map'.`name' omitted because of collinearity"
         }
     }
 
-    mata `results' = MulTE()
-    mata `results'.estimates("`depvar'", "`treatment'", "`W'", "`touse'", "`wgt'", "`weight'")
-    mata `results'.estimates.wgtvar = st_local("exp")
+    * 0. Base decomposition
+    * ---------------------
 
-    if ( `decomp' ) {
-        mata `results'.decomposition("`depvar'", "`treatment'", "`W'", "`touse'", "`wgt'", "`weight'")
-        mata `results'.decomposition.wgtvar = st_local("exp")
+    tempname multeworker
+    mata `multeworker'  = MulTE()
+    mata `results'      = MulTE_Return()
+    mata `results'.full = `multeworker'.decomposition()
 
-        * Save lambda and tauhat, if requested
-        LambdaTau, results(`results') touse(`touse') `generate'
+    * 1. Drop strata with no overlap
+    * ------------------------------
+
+    local rerun = 0
+    if ( `Sk' > 1 ) {
+        tempvar Wtag Ttag Tuniq Tdrop
+        egen byte   `Wtag'  = tag(`W')         if `touse'
+        egen byte   `Ttag'  = tag(`W' `T')     if `touse'
+        egen double `Tuniq' = sum(`Ttag')      if `touse', by(`W')
+        gen   byte  `Tdrop' = (`Tuniq' < `Tk') if `touse'
+
+        qui count if (`Wtag' == 1) & (`Tdrop' == 1) & `touse'
+        local nsdrop = `r(N)'
+
+        qui count if (`Tdrop' == 1) & `touse'
+        local nobs = `r(N)'
+
+        qui replace `touse' = 0 if (`Tdrop' == 1)
+        if ( `nobs' | `nsdrop' ) {
+            disp as txt "dropped `nsdrop' control strata without sufficient overlap (`nobs' obs)"
+            qui drop `W'
+            qui egen `c(obs_t)' `W' = group(`control') if `touse'
+            local rerun = 1
+        }
+
+        qui count if `touse'
+        if ( `r(N)' == 0 ) {
+            disp "overlap sample is empty; cannot run overlap"
+        }
     }
-    mata `results'.cache_drop()
+
+    * 2. Drop controls that don't have within-treatment variation
+    * -----------------------------------------------------------
+
+    tempname zany zanybase zlevel zlevelbase
+    mata `zany'     = J(1, `:list sizeof zfull', 0)
+    mata `zanybase' = J(1, `:list sizeof zfull', 0)
+    forvalues j = 1 / `Tk' {
+        helper_strip_omitted `zfull' if `touse' & (`T' == `j') `wcall', noconstant
+        mata `zlevel'     = st_matrix("r(omit)")
+        mata `zlevelbase' = st_matrix("r(omitbase)")
+        mata `zany'    [selectindex(`zlevel')]     = select(`zlevel',     `zlevel')
+        mata `zanybase'[selectindex(`zlevelbase')] = select(`zlevelbase', `zlevelbase')
+    }
+    mata st_local("zreg2", invtokens(select(tokens(st_local("zfull")), !`zanybase')))
+    mata st_matrix("`zomit'",     `zany')
+    mata st_matrix("`zomitbase'", `zanybase')
+
+    if ( "`zreg2'" != "`zreg'" ) {
+        local zdrop: list zreg - zreg2
+        local zreg: copy local zreg2
+        disp "The following variables have no within-treatment variation and are dropped:"
+        foreach var of local zdrop {
+            disp "    `var'"
+        }
+        local rerun = 1
+    }
+
+    if ( `rerun' ) {
+        mata `results'.overlap = `multeworker'.decomposition()
+    }
 
     * Save estimates in r()
-    tempname estmatrix decompmatrix
-    mata `results'.estimates.save("`estmatrix'")
-    mata `results'.decomposition.save("`decompmatrix'")
+    * xx tempname estmatrix decompmatrix
+    * xx mata `results'.estimates.save("`estmatrix'")
+    * xx mata `results'.decomposition.save("`decompmatrix'")
 
     * Display standard Stata table; save in e()
-    Display `results', vce(`vce') touse(`touse')
-    mata st_local("cmdline", "multe " + st_local("0bak"))
+    * xx Display `results', vce(`vce') touse(`touse')
+    mata st_local("cmdline", "multe " + st_local("0"))
     ereturn local cmdline: copy local cmdline
-    ereturn local wtype     = "`weight'"
-    ereturn local wexp      = "`exp'"
-    ereturn local cmd       = "multe"
-    ereturn local depvar    = "`depvar'"
-    ereturn local treatment = "`treatment'"
-    ereturn local control   = "`control'"
-    ereturn local mata      = "`results'"
+    ereturn local wtype          = "`weight'"
+    ereturn local wexp           = "`exp'"
+    ereturn local cmd            = "multe"
+    ereturn local depvar         = "`depvar'"
+    ereturn local treatment      = "`treatment'"
+    ereturn local controls       = "`X'"
+    ereturn local stratum        = "`stratum'"
+    ereturn local mata           = "`results'"
 
-    ereturn matrix estimates = `estmatrix'
-    if ( `decomp' ) {
-        ereturn matrix decomposition = `decompmatrix'
-        if ( `decomp1' ) {
-            mata `results'.decomposition.print(`decomp3')
-        }
+    tempname estmatrix
+    mata st_matrix("`estmatrix'", `results'.full.estA#(1\0) :+ `results'.full.seP#(0\1))
+    mata st_matrixcolstripe("`estmatrix'", (J(5, 1, ""), `results'.full.labels'))
+
+    tempname sub labs
+    mata `labs' = tokens(st_local("Tlevels"))[2..`Tk']
+    if ( strpos("`:type `treatment''", "str") == 0 ) {
+        mata `sub'  = st_varvaluelabel(st_local("treatment"))
+        mata `labs' = (`sub' != "")? st_vlmap(`sub', strtoreal(`labs')): `labs'
     }
+    mata st_matrixrowstripe("`estmatrix'", (J(2*(`Tk'-1), 1, ""), vec(`labs' \ J(1, `Tk'-1, "SE"))))
+    matlist `estmatrix', format(%7.4g)
+
+    ereturn matrix estmatrix = `estmatrix'
 end
 
-capture program drop LambdaTau
-program LambdaTau
-    syntax, results(str) [lambda LAMBDAprefix(str) tau TAUprefix(str) touse(str)]
-    tempname types names
+* xx capture program drop Replay
+* xx program Replay, eclass
+* xx     syntax, [vce(str) GENerate(str) DECOMPosition minmax *]
+* xx     local decomp1 = ("`decomposition'" != "")
+* xx     local decomp2 = (`"`generate'"'    != "")
+* xx     local decomp3 = (`"`minmax'"'      != "")
+* xx     local decomp  = `decomp1' | `decomp2'
+* xx     if (`"`e(cmd)'"' != "multe") error 301
+* xx     if ( `decomp' ) {
+* xx         Decomposition, `generate'
+* xx         if ( `decomp1' ) {
+* xx             mata `e(mata)'.decomposition.print(`decomp3')
+* xx         }
+* xx         tempname decompmatrix
+* xx         mata `e(mata)'.decomposition.save("`decompmatrix'")
+* xx         ereturn matrix decomposition = `decompmatrix'
+* xx     }
+* xx     else {
+* xx         Display `e(mata)', vce(`vce') repost `options'
+* xx     }
+* xx end
+* xx 
+* xx capture program drop Display
+* xx program Display, eclass
+* xx     syntax namelist(max = 1), [vce(str) touse(str) repost *]
+* xx     * mata printf("\nTreatment Effect Estimates\n")
+* xx     if "`post'" == "" local post post
+* xx     FreeMatrix b V
+* xx     mata `namelist'.estimates.post("`b'", "`V'", "`vce'")
+* xx     mata st_local("N", strofreal(`namelist'.estimates.n))
+* xx     if "`repost'" == "repost" {
+* xx         ereturn repost b = `b' V = `V'
+* xx     }
+* xx     else {
+* xx         ereturn post `b' `V', esample(`touse') obs(`N')
+* xx     }
+* xx 
+* xx     if ( "`vce'" == "oracle" ) ereturn local vcetype "Oracle"
+* xx     else ereturn local vcetype ""
+* xx     ereturn local vce `vce'
+* xx 
+* xx     _coef_table_header, nomodeltest title(Treatment Effect Estimates)
+* xx     disp ""
+* xx     _coef_table, noempty `options'
+* xx     //     level(95)
+* xx     //     bmatrix(`b')      // e(b)
+* xx     //     vmatrix(`V')      // e(V)
+* xx     //     dfmatrix(matname) // e(mi_df)
+* xx     //     ptitle(title)
+* xx     //     coeftitle(title)
+* xx     //     cititle(title)
+* xx     //     cformat(format)
+* xx     //     pformat(format)
+* xx     //     sformat(format)
+* xx end
 
-    local savelambda = ("`lambdaprefix'" != "") | ("`lambda'" != "")
-    local savetau    = ("`tauprefix'"    != "") | ("`tau'"    != "")
-
-    if "`lambdaprefix'" == "" local lambdaprefix lambda
-    if "`tauprefix'"    == "" local tauprefix    tau
-
-    if ( `savelambda' ) {
-        mata: `names' = `results'.decomposition.lambda_names
-        mata: `names' = "`lambdaprefix'" :+ `names'
-        mata: `types' = J(1, cols(`names'), "`:set type'")
-        mata: (void) st_addvar(`types', `names')
-        if "`touse'" != "" {
-            mata: (void) st_store(., `names', "`touse'", `results'.decomposition.lambda(`results'.Xm, `results'.Wm, `results'.w))
-        }
-        else {
-            mata: (void) st_store(., `names', `results'.decomposition.lambda(`results'.Xm, `results'.Wm, `results'.w))
-        }
-    }
-
-    if ( `savetau' ) {
-        mata: `names' = `results'.decomposition.tauhat_names
-        mata: `names' = "`tauprefix'" :+ `names'
-        mata: `types' = J(1, cols(`names'), "`:set type'")
-        mata: (void) st_addvar(`types', `names')
-        if "`touse'" != "" {
-            mata: (void) st_store(., `names', "`touse'", `results'.decomposition.tauhat(`results'.Wm))
-        }
-        else {
-            mata: (void) st_store(., `names', `results'.decomposition.tauhat(`results'.Wm))
-        }
-    }
-end
-
-capture program drop Replay
-program Replay, eclass
-    syntax, [vce(str) GENerate(str) DECOMPosition minmax *]
-    local decomp1 = ("`decomposition'" != "")
-    local decomp2 = (`"`generate'"'    != "")
-    local decomp3 = (`"`minmax'"'      != "")
-    local decomp  = `decomp1' | `decomp2'
-    if (`"`e(cmd)'"' != "multe") error 301
-    if ( `decomp' ) {
-        Decomposition, `generate'
-        if ( `decomp1' ) {
-            mata `e(mata)'.decomposition.print(`decomp3')
-        }
-        tempname decompmatrix
-        mata `e(mata)'.decomposition.save("`decompmatrix'")
-        ereturn matrix decomposition = `decompmatrix'
-    }
-    else {
-        Display `e(mata)', vce(`vce') repost `options'
-    }
-end
-
-capture program drop Decomposition
-program Decomposition
-    syntax, [*]
-    tempvar touse W
-    qui gen byte `touse' = e(sample)
-    if "`e(wexp)'" != "" {
-        tempvar wgt
-        qui gen double `wgt' `e(wexp)' if `touse'
-    }
-    qui egen `c(obs_t)' `W' = group(`e(control)') if `touse'
-    mata `e(mata)'.cache_load("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'", "`wgt'")
-    mata `e(mata)'.decomposition("`e(depvar)'", "`e(treatment)'", "`W'", "`touse'", "`wgt'", "`e(wtype)'")
-    LambdaTau, results(`e(mata)') `options' touse(`touse')
-    mata `e(mata)'.cache_drop()
-end
-
-capture program drop Display
-program Display, eclass
-    syntax namelist(max = 1), [vce(str) touse(str) repost *]
-    * mata printf("\nTreatment Effect Estimates\n")
-    if "`post'" == "" local post post
-    FreeMatrix b V
-    mata `namelist'.estimates.post("`b'", "`V'", "`vce'")
-    mata st_local("N", strofreal(`namelist'.estimates.n))
-    if "`repost'" == "repost" {
-        ereturn repost b = `b' V = `V'
-    }
-    else {
-        ereturn post `b' `V', esample(`touse') obs(`N')
-    }
-
-    if ( "`vce'" == "oracle" ) ereturn local vcetype "Oracle"
-    else ereturn local vcetype ""
-    ereturn local vce `vce'
-
-    _coef_table_header, nomodeltest title(Treatment Effect Estimates)
-    disp ""
-    _coef_table, noempty `options'
-    //     level(95)
-    //     bmatrix(`b')      // e(b)
-    //     vmatrix(`V')      // e(V)
-    //     dfmatrix(matname) // e(mi_df)
-    //     ptitle(title)
-    //     coeftitle(title)
-    //     cititle(title)
-    //     cformat(format)
-    //     pformat(format)
-    //     sformat(format)
-end
-
-capture program drop FreeMatrix
-program FreeMatrix
-    local FreeCounter 0
-    local FreeMatrix
-    foreach FM of local 0 {
-        cap error 0
-        while ( _rc == 0 ) {
-            cap confirm matrix MulTE`++FreeCounter'
-            c_local `FM' MulTE`FreeCounter'
-        }
-    }
-end
-
-capture program drop helper_reference_omitted
-program helper_reference_omitted, rclass
-    syntax anything(equalok) [if] [in]
-    fvexpand `anything' `if' `in'
-    local expanded `r(varlist)'
-
-    tempname b omit
-    matrix `b' = J(1, `:list sizeof expanded', .)
-    matrix colnames `b' = `expanded'
-
-    _ms_omit_info `b'
-    matrix `omit' = r(omit)
-
-    return local expanded: copy local expanded
-    return matrix omit = `omit'
-end
+* xx capture program drop FreeMatrix
+* xx program FreeMatrix
+* xx     local FreeCounter 0
+* xx     local FreeMatrix
+* xx     foreach FM of local 0 {
+* xx         cap error 0
+* xx         while ( _rc == 0 ) {
+* xx             cap confirm matrix MulTE`++FreeCounter'
+* xx             c_local `FM' MulTE`FreeCounter'
+* xx         }
+* xx     }
+* xx end
 
 capture program drop helper_strip_omitted
 program helper_strip_omitted, rclass
@@ -358,10 +292,10 @@ program helper_strip_omitted, rclass
 	if ( `"`weight'"' != "" ) local wcall [`weight' `exp']
     fvexpand `extra'
     local extra `r(varlist)'
-    _rmcoll `extra' `anything' `if' `wcall', expand `options'
+    qui _rmcoll `extra' `anything' `if' `wcall', expand `options'
     local expanded `r(varlist)'
 
-    tempname b omit final keep
+    tempname b omit omitbase final keep
     mata `keep' = (`:list sizeof extra'+1)..`:list sizeof expanded'
     matrix `b' = J(1, `:list sizeof expanded', .)
     matrix colnames `b' = `expanded'
@@ -372,8 +306,21 @@ program helper_strip_omitted, rclass
     mata `final' = select(st_matrixcolstripe("`b'")[., 2]', !st_matrix("r(omit)"))
     mata st_local("varlist",  invtokens(cols(`final')? `final': ""))
     mata st_local("expanded", invtokens(tokens(st_local("expanded"))[`keep']))
+    local controls: list expanded - extra
+
+    local i = 0
+    matrix `omitbase' = J(1, `:list sizeof controls', 0)
+    foreach var of local controls {
+        local ++i
+        if regexm("`var'", "([0-9]+).*o\.(.+)") {
+            matrix `omitbase'[`i'] = 1
+        }
+    }
+    mata st_local("regress", invtokens(select(tokens(st_local("controls")), !st_matrix("`omitbase'"))))
 
     return local expanded: copy local expanded
     return local varlist:  copy local varlist
-    return matrix omit =  `omit'
+    return local regress:  copy local regress
+    return matrix omit     = `omit'
+    return matrix omitbase = `omitbase'
 end

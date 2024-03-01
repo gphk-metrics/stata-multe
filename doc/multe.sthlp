@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 0.5.0 20Mar2023}{...}
+{* *! version 1.0.0 29Feb2024}{...}
 {viewerdialog multe "dialog multe"}{...}
 {vieweralsosee "[R] multe" "mansection R multe"}{...}
 {viewerjumpto "Syntax" "multe##syntax"}{...}
