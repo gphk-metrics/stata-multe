@@ -42,6 +42,7 @@ struct MulTE_Results
     real matrix Vo_ATE, Vo_EW, Vo_CW
     real matrix Vdiff_OWN, Vdiff_ATE, Vdiff_EW, Vdiff_CW
     real vector touse
+    real scalar N
 }
 
 struct MulTE_Info
@@ -98,7 +99,7 @@ void function MulTE::setup()
     this.info.zomit      = st_matrix(st_local("zomit"))
     this.info.zomitbase  = st_matrix(st_local("zomitbase"))
     this.info.Tk         = strtoreal(st_local("Tk"))
-    this.info.wgt        = (this.info.wgt != "")
+    this.info.wgt        = (st_local("wgt") != "")
     this.info.debug      = (st_local("debug") != "")
     this.info.cw_uniform = (st_local("cw_uniform") != "")
 }

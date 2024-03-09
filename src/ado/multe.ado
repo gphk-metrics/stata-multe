@@ -132,6 +132,7 @@ program multe, eclass
     mata `results'.Tlevels    = tokens(st_local("Tlevels"))
     mata `results'.full       = `multeworker'.decomposition()
     mata `results'.full.touse = st_data(., st_local("touse"))
+    mata `results'.full.N     = sum(`results'.full.touse)
 
     * 1. Drop strata with no overlap
     * ------------------------------
@@ -196,6 +197,7 @@ program multe, eclass
     if ( `rerun' ) {
         mata `results'.overlap = `multeworker'.decomposition()
         mata `results'.overlap.touse = st_data(., st_local("touse"))
+        mata `results'.overlap.N     = sum(`results'.overlap.touse)
         mata `results'.has_overlap   = 1
     }
 
@@ -208,7 +210,7 @@ program multe, eclass
     ereturn local wtype          = "`weight'"
     ereturn local wexp           = "`exp'"
     ereturn local cmd            = "multe"
-    ereturn local depvar         = "`depvar'"
+    ereturn local depvar         = "`Y'"
     ereturn local treatment      = "`treatment'"
     ereturn local controls       = "`X'"
     ereturn local cluster        = "`cluster'"
@@ -344,7 +346,7 @@ program Display, eclass
 
     local estimates = upper("`estimates'")
     if ( !inlist(upper("`estimates'"), "PL", "OWN", "ATE", "EW", "CW") ) {
-        disp as err "estimates(`vce') unknown; must be one of PL, OWN, ATE, EW, CW"
+        disp as err "estimates(`estimates') unknown; must be one of PL, OWN, ATE, EW, CW"
         exit 198
     }
 
@@ -412,7 +414,6 @@ program Display, eclass
         if ( "`oracle'" == "oracle" ) ereturn local vcetype "Oracle Cluster"
         else ereturn local vcetype "Cluster"
     }
-    ereturn local vce `vce'
     ereturn local displayopts estimates(`estimates') `full' `overlap' `diff' `oracle'
 
     _coef_table_header, nomodeltest title(`lab`estimates'' Estimates (`full'`overlap' sample))

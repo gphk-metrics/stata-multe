@@ -9,51 +9,42 @@
 {title:Title}
 
 {p2colset 5 14 14 2}{...}
-{p2col :{cmd:multe} {hline 2}}Multiple Treatment Effects regression with controls{p_end}
+{p2col :{cmd:multe} {hline 2}}Multiple Treatment Effects for Contamination Bias Diagnostics{p_end}
 {p2colreset}{...}
 
 {marker syntax}{...}
 {title:Syntax}
 
 {pstd}
-Multiple treatment effects regression. Given a multi-valued treatment, a saturated group variable (or a {varlist} which will be used to create a single, saturated
-group variable), and a dependent variable, {cmd:multe} computes equal-weighted (ATE), variance-weighted, efficiently-weighted treatment effects estimates
-and (optionally) contamination bias decomposition as in Goldsmith-Pinkham et al. (2022). (The user can alternatively force linearity and specify arbitrary linear controls.)
+This package computes multiple treatment effects regression for contamination bias diagnostics, using the procedures from Goldsmith-Pinkham, Hull, and Kolesár (2024).
 
 {p 8 15 2}
 {cmd:multe}
 {depvar}
-{it:treatment}
+[{varlist}]
 {ifin}
 [{it:{help multe##weight:weight}}]
 {cmd:,}
-{opth control(varlist)}
-[{it:{help multe##table_options:options}}]
+{opth treat(varname)}
+[{opth stratum(varname)} {it:{help multe##table_options:options}}]
+
+{pstd}
+with {it:depvar} the dependent variable, {opt treat(varname)} the multi-valued treatment, and at least one of {it:varlist} with controls or {opt stratum(varname)} with a stratifying variable must be specified.
 
 {synoptset 18 tabbed}{...}
 {marker table_options}{...}
 {synopthdr}
 {synoptline}
 {syntab :Options}
-{synopt :{opt vce(str)}} Type of standard errors to print: "" (heteroskedasticity-robust) or "oracle" (heteroskedasticity-robust, treating propensity scores as known).
+{synopt :{opt treat:ment(varname)}} Name of multi-valued treatment variable.
+{p_end}
+{synopt :{opt strat:um(varname)}} Name of stratifying covariate.
+{p_end}
+{synopt :{opt cluster(varname)}} Name of clustering covariate.
+{p_end}
+{synopt :{opt cw:_uniform}} Whether the target weighting scheme should give all comparisons equal weight or draw from the marginal empirical treatment distribution.
 {p_end}
 {synopt :{opt mata:save(str)}} Name of mata object with results (default: multe_results).
-{p_end}
-{synopt :{opt overlap}} Force overlap within control (not available with {opt linear}).
-{p_end}
-{synopt :{opt linear}} Assume linearity and treat {opt control()} as a linear varlist.
-{p_end}
-{synopt :{opt decomp:osition}} Optionally compute contamination bias decomposition. (Can be computed after main function run.)
-{p_end}
-{synopt :{opt gen:erate(options)}} Optionally save tau (control-specific treatment effects) and/or lambda (implicit ATE regression weights); computes bias decomposition
-internally. (Can be computed after main function run.) See {it:{help multe##gen_options:generate options}}.
-{p_end}
-
-{marker gen_options}{...}
-{syntab :Generate Options}
-{synopt :{cmd:lambda}[{cmd:(}str{cmd:)}]} Save lambdas in dataset; optionally specify prefix (default: {cmd:lambda}).
-{p_end}
-{synopt :{cmd:tau}[{cmd:(}str{cmd:)}]} Save taus in dataset; optionally specify prefix (default: {cmd:tau}).
 {p_end}
 
 {p2colreset}{...}
@@ -61,111 +52,55 @@ internally. (Can be computed after main function run.) See {it:{help multe##gen_
 
 {marker weight}{...}
 {p 4 6 2}
-{opt aweight}s and {opt fweight}s are allowed. {opt fweight}s
-are assumed to represent underlying observations (i.e. each row represnts
-that many copies in underlying data); {opt aweight}s are rescaled so the 
-sum of the weights adds up to the number of observations.
+{opt aweight}s and {opt pweight}s are allowed.
 
 {marker description}{...}
 {title:Description}
 
 {pstd}
-{cmd:multe} computes three types of weighted-average treatment effects in settings with multiple treatments and a saturated group control (defaut), within which treatment is as-good-as-randomly
-assigned. These are the equal-weighted averages (i.e. average treatment effects), treatment-specific variance-weighted averages (as in Angrist et al. (1998)), and comparable efficiently
-weighted averages (as in Goldsmith-Pinkham et al. (2022)). (With option {opt linear}, the user can force linearity and alternatively specify arbitrary linear controls through {opt control()}.)
+{cmd:multe} computes five estimates of treatment effects in settings with multiple treatments and provides estimates of contamination bias. See the package README at {browse "https://github.com/gphk-metrics/stata-multe/blob/main/README.md":github.com/gphk-metrics/stata-multe} for a detailed description and examples.
 
 {pstd}
-{cmd:multe} can optionally compute and save a decomposition of regression estimates of treatment effects into an own-effect weighted average and a contamination bias term, following
-Goldsmith-Pinkham et al. (2022). It also provides an option to save the implicit ATE regression weights (lambda) and/or the control-specific (by debault the saturated group-specific) treatment effects (tau) as variables
-(see {it:{help multe##options:options}} for details). Results are saved in {cmd:e()} (see {it:{help multe##results:stored results}} below for details).
-
-{pstd}
-Heteroskedasticity-robust standard errors (default) and heteroskedasticity-robust standard errors that treat the treatment propensity scores as known (oracle) are also reported.
-
-{pstd}
-The {depvar} and {it:treatment} can be any numeric variables. However, each unique value of the {it:treatment} variable is taken as a distinct level of the treatment. The lowest value of
-{it:treatment} is picked to be the control group. The {cmd:control} variables can be numeric or string, but should define a series of categories ({cmd:multe} will turn the controls into a
-single, saturated group variable unless option {opt linear} is specified).
-
-{pstd}
-For a detailed theoretical discussion of calculations done by {cmd:multe}, see Goldsmith-Pinkham et al. (2022). Examples are provided below, including the Project STAR
-example used in Goldsmith-Pinkham et al. (2022).
+Heteroskedasticity-robust standard errors (default) and heteroskedasticity-robust standard errors that treat the treatment propensity scores as known (oracle) are also reported; standard errors can be clustered via {opt cluster()}. Each unique value of the {it:treatment} variable is taken as a distinct level of the treatment. The lowest value of {it:treatment} is picked to be the control group. The {cmd:stratum()} variables can be numeric or string, but should define a series of categories. Finally, the estimates are also reported for an "overlap" sample, which drops covariates that have no variation within a treatment level as well as observations from stratum that do not contain at least one observation from each treatment level. Unlike the full sample, all estimates are identified in the "overlap" sample.
 
 {marker options}{...}
 {title:Options}
 
 {dlgtab:Command Options}
 
-{phang}{opth vce(str)} specifies the type of standard errors to print. The default "" is heteroskedasticity-robust, and "oracle" specifies heteroskedasticty-robust standard errors that treat the
-propensity score for each treatment level as known.
+{phang}{opth treatment(varname)} Specifies the name of the treatment variable. Each value is taken as a different reatment level.
 
-{phang}{opth mata:save(str)} supplies an alternative name for the mata structure which stores all estimates and variables in mata (default name is "multe_results").
-Note this is in addition to results stored in {cmd:e()}; see {it:{help multe##results:stored results}} below for details.
+{phang}{opth stratum(varname)} Not optional if no covariates are specified. This can be any variable, and each value is taken to define a stratum. If any level does not have all values of the treatment, those observations are dropped in the overlap sample.
 
-{phang}{opt overlap} Groups which do not satisfy overlap (i.e. the number of unique treatment levels in that group is less than the total number of unique treatment levels) will be dropped. Not available with option {opt linear}.
+{phang}{opth cluster(varname)} Clustering covariate.
 
-{phang}{opt linear} With this option the user can force linearity and specify an arbitrary varlist in {opt control()}.
+{phang}{opt cw_uniform} For the CW estimator, should the target weighting scheme give all comparisons equal weight (default), or should it draw from the marginal empirical treatment distribution (if specified)?
 
-{phang}{opt decomp:osition} computes contamination bias decomposition as in Goldsmith-Pinkham et al. (2022). This is computationally intensive and is therefore not computed by default.
-The user can compute the decomposition interactively using the most recent {cmd:multe} results via {cmd:multe, decomposition}.
-
-{phang}{opt gen:erate(options)} specifies whether to save lambda and/or tau (as defined above) as variables. The user can optionally specify the names of these two sets of variables via the
-options {cmd:lambda}[{cmd:(}str{cmd:)}] and {cmd:tau}[{cmd:(}str{cmd:)}]. For example, {cmd:gen(lambda tau)} would generate both with default names, while {cmd:gen(lambda(lname) tau(tname))}
-would generate them with custom names. The user can generate these interactively using the most recent {cmd:multe} results via {cmd:multe, gen()}.
-
-{dlgtab:Generate Options}
-
-{phang}{cmd:lambda}[{cmd:(}str{cmd:)}] saves the set of implicit ATE regression weights as variables and optionally specifies an alternative prefix. The default prefix is "lambda".
-
-{phang}{cmd:tau}[{cmd:(}str{cmd:)}] saves the the control-specific (by debault the saturated group-specific) treatment effects as variables and optionally specifies an alternative prefix. The default prefix is "tau".
+{phang}{opth mata:save(str)} supplies an alternative name for the mata structure which stores all estimates and variables in mata (default name is "multe_results"). Note this is in addition to results stored in {cmd:e()}; see {it:{help multe##results:stored results}} below for details.
 
 {marker example}{...}
 {title:Example 1: Generated data}
 
-{phang2}{cmd:. local nobs   1000                                             }{p_end}
-{phang2}{cmd:. local ktreat 5                                                }{p_end}
-{phang2}{cmd:. clear                                                         }{p_end}
-{phang2}{cmd:. set seed 1729                                                 }{p_end}
-{phang2}{cmd:. set obs `nobs'                                                }{p_end}
-{phang2}{cmd:. gen T = ceil(runiform() * `ktreat')                           }{p_end}
-{phang2}{cmd:. gen W = mod(_n, 10)                                           }{p_end}
-{phang2}{cmd:. gen Y = T + runiform()                                        }{p_end}
-{phang2}{cmd:. multe Y T, control(W)                                         }{p_end}
-{phang2}{cmd:. ereturn list                                                  }{p_end}
+{phang2}{cmd:. local nobs   1000                   }{p_end}
+{phang2}{cmd:. local ktreat 5                      }{p_end}
+{phang2}{cmd:. clear                               }{p_end}
+{phang2}{cmd:. set seed 1729                       }{p_end}
+{phang2}{cmd:. set obs `nobs'                      }{p_end}
+{phang2}{cmd:. gen T = ceil(runiform() * `ktreat') }{p_end}
+{phang2}{cmd:. gen W = mod(_n, 10)                 }{p_end}
+{phang2}{cmd:. gen Y = T + runiform()              }{p_end}
+{phang2}{cmd:. multe Y, treat(T) strat(W)          }{p_end}
+{phang2}{cmd:. ereturn list                        }{p_end}
 
-{pstd}Use cached results to compute decomposition, lambda, tau{p_end}
-
-{phang2}{cmd:. multe, vce(oracle)         }{p_end}
-{phang2}{cmd:. multe, decomposition       }{p_end}
-{phang2}{cmd:. multe, decomposition minmax}{p_end}
-{phang2}{cmd:. multe, gen(lambda tau)     }{p_end}
-
-{pstd}Compute decomposition, lambda, tau from the onset{p_end}
-
-{phang2}{cmd:. multe Y T, control(W) decomp gen(lambda(awesomeName) tau(coolerName))}{p_end}
-{phang2}{cmd:. desc, full                                                           }{p_end}
-
-{title:Example 2: Project STAR}
+{title:Example 2: Fryer and Levitt (2013)}
 
 {pstd}The data for this example can be downloaded with the {cmd:multe} package by specifying the option {cmd:all} (i.e. {it:net install multe, all}).
 
-{phang2}{cmd:. use example_star.dta, clear           }{p_end}
-{phang2}{cmd:. multe score treatment, control(school)}{p_end}
-{phang2}{cmd:. ereturn list                          }{p_end}
-{phang2}{cmd:. multe, vce(oracle)                    }{p_end}
-{phang2}{cmd:. multe, gen(lambda(M_) tau(tauhat_))   }{p_end}
-{phang2}{cmd:. multe, decomp                         }{p_end}
-{phang2}{cmd:. desc, full                            }{p_end}
-
-{pstd}After obtaining the implicit regression weights (lambda) and group-specific treatment effects (tau) based on a partially linear model, you can calculate
-the correlations to get a sense of how much contamination bias might affect estimates from such a model:
-
-{phang2}{cmd:. corr tauhat_? M_??}{p_end}
-
-{pstd}You can also optionally specify an alternative name for the mata struct which contains stored results (see {it:{help multe##mata:Stored mata results}}).
-
-{phang2}{cmd:. multe score treatment, control(school) matasave(matastructname)}{p_end}
-{phang2}{cmd:. mata mata desc                                                 }{p_end}
+{phang2}{cmd:. use example_fryer_levitt.dta, clear                                   }{p_end}
+{phang2}{cmd:. local controls i.age_24 female i.siblings i.family_structure          }{p_end}
+{phang2}{cmd:. multe std_iq_24 `controls' [w=W2C0], treat(race) stratum(SES_quintile)}{p_end}
+{phang2}{cmd:. ereturn list    }{p_end}
+{phang2}{cmd:. multe, est(ATE) }{p_end}
 
 {marker results}{...}
 {title:Stored results}
@@ -184,19 +119,28 @@ the correlations to get a sense of how much contamination bias might affect esti
 {synopt:{cmd:e(wexp)}}weight expression{p_end}
 {synopt:{cmd:e(depvar)}}name of dependent variable{p_end}
 {synopt:{cmd:e(treatment)}}name of multi-valued treatment{p_end}
-{synopt:{cmd:e(control)}}name of control variable{p_end}
-{synopt:{cmd:e(vce)}}only populated when {opt vce(oracle)} is requested{p_end}
+{synopt:{cmd:e(controls)}}name of control variables{p_end}
 {synopt:{cmd:e(vcetype)}}title used to label Std. Err.{p_end}
-{synopt:{cmd:e(properties)}}{cmd:b V} ({bf:NB}: V is a diagonal matrix of squared SEs.){p_end}
-{synopt:{cmd:e(predict)}}program used to implement {cmd:predict}{p_end}
+{synopt:{cmd:e(properties)}}{cmd:b V}{p_end}
 {synopt:{cmd:e(mata)}}name of mata object where results are stored (see below){p_end}
 
 {p2col 5 23 26 2: Matrices}{p_end}
-{synopt:{cmd:e(b)}}coefficient vector{p_end}
-{synopt:{cmd:e(V)}}block diagonal matrix of three covariance matrices corresponding to the ATE estimates, one-at-a-time estimates, and efficiently-weighted
-estimates. Note the covariance matrix for the one-at-a-time estimates only reports diagonal terms.{p_end}
-{synopt:{cmd:e(estimates)}}matrix of coefficients, including SE and orable SE.{p_end}
-{synopt:{cmd:e(decomposition)}}decomposition matrix, if requested (beta, own effect, contamination bias, minimum bias, maximum bias){p_end}
+{synopt:{cmd:e(b)}}coefficient vector for requested estimates (default is partly linear model).{p_end}
+{synopt:{cmd:e(V)}}cvariance matrix corresponding to the coefficient vector.{p_end}
+{synopt:{cmd:e(fullmatrix)}}matrix of results with all five estimates and corresponding SEs.{p_end}
+{synopt:{cmd:e(diffmatrix)}}matrix of differences between partly linear estimates and the rest of the estimates, with corresponding SEs.{p_end}
+{synopt:{cmd:e(full_beta)}}coefficients for each of the five estimates.{p_end}
+{synopt:{cmd:e(full_pop_se)}}SEs for each of the five estimates.{p_end}
+{synopt:{cmd:e(full_oracle_se)}}Oracle SEs for each of the five estimates.{p_end}
+{synopt:{cmd:e(full_diff)}}differences between partly linear estimates and the rest of the estimates.{p_end}
+{synopt:{cmd:e(full_diff_se)}}SEs for each of the differences.{p_end}
+{synopt:{cmd:e(overlapdiffmatrix)}}only if overlap sample is computed; analogous to {cmd:e(fullmatrix)}.{p_end}
+{synopt:{cmd:e(overlapmatrix)}}only if overlap sample is computed; analogous to {cmd:e(diffmatrix)}.{p_end}
+{synopt:{cmd:e(overlap_diff)}}only if overlap sample is computed; analogous to {cmd:e(full_beta)}{p_end}
+{synopt:{cmd:e(overlap_diff_se)}}only if overlap sample is computed; analogous to {cmd:e(full_pop_se)}{p_end}
+{synopt:{cmd:e(overlap_oracle_se)}}only if overlap sample is computed; analogous to {cmd:e(full_oracle_se}){p_end}
+{synopt:{cmd:e(overlap_pop_se)}}only if overlap sample is computed; analogous to {cmd:e(full_diff)}{p_end}
+{synopt:{cmd:e(overlap_beta}})only if overlap sample is computed; analogous to {cmd:e(full_diff_se)}{p_end}
 
 {p2col 5 23 26 2: Functions}{p_end}
 {synopt:{cmd:e(sample)}}marks estimation sample{p_end}
@@ -206,78 +150,98 @@ estimates. Note the covariance matrix for the one-at-a-time estimates only repor
 {pstd}
 In addition, the following data are available in {cmd:e(mata)} (default name: multe_results):
 
-        real scalar estimates.n
-            number of observations
+        real scalar has_overlap
+            whether estimates for the overlap sample were computed
 
-        real scalar estimates.nw
-            sum of the weights (number of observations used in computations)
-
-        real scalar estimates.k
+        real scalar Tk
             number of treatment levels
 
-        real matrix estimates.est
-            (k-1) by 3 matrix of coefficients
+        string rowvector Tlevels
+            treatment level names or labels
 
-        real matrix estimates.se_po
-            (k-1) by 3 matrix of heteroskedasticity-robust standard errors
+        string scalar Tvar
+            name of treatment variable
 
-        real matrix estimates.se_or
-            (k-1) by 3 matrix of heteroskedasticity-robust standard errors treating treatment propensity scores as known
+        string scalar Yvar
+            name of dependent variable
 
-        real matrix estimates.po_vcov
-            3k by 3k heteroskedasticity-robust vcov matrix
+        real matrix full.N
+            number of observations in full sample
 
-        real matrix estimates.or_vcov
-            3k by 3k heteroskedasticity-robust vcov matrix treating propensity scores as known
+        real matrix full.touse
+            vector if 1s and 0s flagging used observations
 
-        real vector estimates.Tvalues
-            k by 1 vector with treatment levels
+        real matrix full.estA
+            matrix with each of the give estimates
 
-        string vector estimates.Tlabels
-            k by 1 vector with treatment labels
+        real matrix full.estB
+            matrix with the difference between PL and each of the other estimates
 
-        string scalar estimates.Tvar
-            treatment variable name
+        real matrix full.seP
+            SEs for estA
 
-        string scalar estimates.Yvar
-            outcome variable name
+        real matrix full.seO
+            Oracle SEs for estA
 
-        string scalar estimates.wgtvar
-            weight expression (blank if no weights are specified)
+        real matrix full.seB
+            SEs for estB
 
-        string scalar estimates.wtype
-            weight type (blank if no weights are specified)
+        real matrix full.Vpop_PL
+            Covariance for PL
 
-        string vector estimates.colnames
-            column names for printing/saving estimates
+        real matrix full.Vpop_OWN
+            Covariance for OWN
 
-        void estimates.print(| real scalar digits)
-            print all estimates to console (default 6 significant digits)
+        real matrix full.Vpop_ATE
+            Covariance for ATE
 
-        void estimates.save(string scalar outmatrix)
-            save estimates to outmatrix
+        real matrix full.Vpop_EW
+            Covariance for EW
 
-        real matrix decomposition.est
-            (k-1) by 5 matrix with coefficient decomposition
+        real matrix full.Vpop_CW
+            Covariance for CW
 
-        real matrix decomposition.se
-            (k-1) by 5 matrix with decomposition SEs
+        real matrix full.Vo_OWN
+            Oracle covariance OWN
 
-        string vector decomposition.tauhat_names
-            variable names for tauhat
+        real matrix full.Vo_ATE
+            Oracle covariance ATE
 
-        string vector decomposition.lambda_names
-            variable names for lambda
+        real matrix full.Vo_EW
+            Oracle covariance EW
 
-        real matrix decomposition.tauhat(real matrix Xm, real matrix Wm, real vector w)
-            compute tauhat from treatment design matrix and design matrix with controls
+        real matrix full.Vo_CW
+            Oracle covariance CW
 
-        real matrix decomposition.lambda(real matrix Wm)
-            compute lambda from design matrix with controls
+        real matrix full.Vdiff_OWN
+            Covariance for differences between PL and OWN
+
+        real matrix full.Vdiff_ATE
+            Covariance for differences between PL and ATE
+
+        real matrix full.Vdiff_EW
+            Covariance for differences between PL and EW
+
+        real matrix full.Vdiff_CW
+            Covariance for differences between PL and CW
+
+        real matrix full.LM.stat
+            LM stat
+
+        real matrix full.LM.df
+            degrees of freedom
+
+        real matrix full.LM.pval
+            p-value
+
+        struct full.Wa
+            analogous to full.LM; contains stat, df, and pval for Wald test
+
+        struct overlap
+            analogous to full; contains all the same data for the overlap sample
 
 {marker references}{...}
 {title:References}
 
 {pstd}
-Goldsmith-Pinkham, Paul, Peter Hull, Michal Koles{c a'}r (2022): "Contamination Bias in Linear Regressions" Working Paper
-
+Goldsmith-Pinkham, Paul, Peter Hull, Michal Koles{c a'}r (2024): "Contamination Bias in Linear Regressions" Working Paper

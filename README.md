@@ -181,31 +181,31 @@ Thus, the ATE estimator comparing other to white is not identified. The package 
 For a researcher who wants to check whether there is a significant difference between the PL estimator and the other estimators, `e(diffmatrix)` and `e(overlapdiffmatrix)` report the differences between the estimates in the full sample and the overlap sample, respectively, with the corresponding standard errors. 
 
 ```stata
-. matlist e(fullmatrix),    format(%7.4g)
+. matlist e(diffmatrix), format(%7.4g)
 
-             |      PL      OWN      ATE       EW       CW 
--------------+---------------------------------------------
-       Black |  -.2438   -.2043   -.2482    -.218   -.2415 
-          SE |  .03077   .03321   .03553   .01027   .03853 
-    Hispanic |  -.2928   -.2801   -.2878    -.285   -.3001 
-          SE |   .0259   .02671      .03   .00497   .02984 
-       Asian |  -.2739   -.2836   -.2742   -.2839   -.2863 
-          SE |  .03418    .0343   .04195    .0048   .04549 
-       Other |   -.152   -.1277   -.1397   -.1295   -.1452 
-          SE |  .03689   .03736   .03603   .00684   .03817 
+             |     OWN      ATE       EW       CW 
+-------------+------------------------------------
+       Black | -.03947    .0044  -.02573  -.00229 
+          SE |  .01204    .0173   .03276    .0205 
+    Hispanic | -.01269  -.00496  -.00783   .00725 
+          SE |  .00571   .01314   .02671   .01245 
+       Asian |  .00975   .00026   .01001   .01238 
+          SE |  .00487    .0246   .03426   .02814 
+       Other |  -.0243  -.01232  -.02246  -.00679 
+          SE |  .00738   .01109   .03713   .01326 
 
-. matlist e(overlapmatrix), format(%7.4g)
+. matlist e(overlapdiffmatrix), format(%7.4g)
 
-             |      PL      OWN      ATE       EW       CW 
--------------+---------------------------------------------
-       Black |  -.2438   -.2043   -.2482    -.218   -.2415 
-          SE |  .03077   .03321   .03553   .01027   .03853 
-    Hispanic |  -.2928   -.2801   -.2878    -.285   -.3001 
-          SE |   .0259   .02671      .03   .00497   .02984 
-       Asian |  -.2739   -.2836   -.2742   -.2839   -.2863 
-          SE |  .03418    .0343   .04195    .0048   .04549 
-       Other |   -.152   -.1277   -.1397   -.1295   -.1452 
-          SE |  .03689   .03736   .03603   .00684   .03817 
+             |     OWN      ATE       EW       CW 
+-------------+------------------------------------
+       Black | -.03947    .0044  -.02573  -.00229 
+          SE |  .01204    .0173   .03276    .0205 
+    Hispanic | -.01269  -.00496  -.00783   .00725 
+          SE |  .00571   .01314   .02671   .01245 
+       Asian |  .00975   .00026   .01001   .01238 
+          SE |  .00487    .0246   .03426   .02814 
+       Other |  -.0243  -.01232  -.02246  -.00679 
+          SE |  .00738   .01109   .03713   .01326 
 ```
 
 We see statistically significant difference between the OWN and PL estimate (i.e. significant contamination bias) for all races, both in the full sample and in the overlap sample. Differences can also be posted after the main estimation:
