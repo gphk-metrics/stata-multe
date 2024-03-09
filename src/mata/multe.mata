@@ -15,7 +15,6 @@ class MulTE
     void new()
     void setup()
     void debug()
-    void post()
     struct MulTE_Results scalar decomposition()
 }
 
@@ -112,10 +111,10 @@ struct MulTE_Results scalar MulTE::decomposition()
     string vector mlfit
     real scalar i, j, wsum, ir_diff
     real vector Y, T, X0, C, ws, LM, Wa
-    real vector rl, ri, Zb, s, w_s, c_s, Y_s, lam, ipi, cw
+    real vector rl, ri, Zb, s, w_s, Y_s, lam, ipi, cw
     real vector seli, selj, idx1, idx1n, th1, th, si
     real matrix Zm, Xf, tX, deltak, gamk, dtX, pp, Z_s, X_s
-    real matrix psi_beta, psi_al, psi_po, psi_ownk, psi_k, psi_1, psi_or
+    real matrix psi_beta, psi_al, psi_po, psi_ownk, psi_k, psi_1, psi_or, psi_rk, psi_ri
     real matrix ir_omit, ir_gam, ir_nam, ir_ord, ir_X, ate0, ate
     real matrix pis, vpi, xf1, M0, M, xf1l, xf1r, a
     real matrix Sc, He, He1112, Vu, pis0, Scr, Her, Her1112, Vr
@@ -241,7 +240,6 @@ struct MulTE_Results scalar MulTE::decomposition()
         Z_s   = Zm[s, .]
         X_s   = Xf[s, j]
         w_s   = this.info.wgt? ws[s]: 1
-        c_s   = missing(C)? .: C[s]
         Y_s   = Y[s]
         Xhat  = multe_helper_olswr(X_s, Z_s, w_s)
         rk    = multe_helper_olswr(Y_s, (Xhat.residuals, Z_s), w_s)
@@ -256,9 +254,9 @@ struct MulTE_Results scalar MulTE::decomposition()
     }
     res.Vpop_OWN  = multe_helper_Vhat(psi_ownk, C)
     res.Vdiff_OWN = multe_helper_Vhat(psi_beta :- psi_ownk, C)
-    res.Vpop_EW   = multe_helper_Vhat(psi_rk, c_s)
-    res.Vdiff_EW  = multe_helper_Vhat(psi_1, C)
-    res.Vo_EW     = multe_helper_Vhat(psi_ri, c_s)
+    res.Vpop_EW   = multe_helper_Vhat(psi_rk, C)
+    res.Vdiff_EW  = multe_helper_Vhat(psi_1,  C)
+    res.Vo_EW     = multe_helper_Vhat(psi_ri, C)
 
     res.seP[., 2] = sqrt(diagonal(res.Vpop_OWN))
     res.seB[., 2] = sqrt(diagonal(res.Vdiff_OWN))

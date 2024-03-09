@@ -1,4 +1,4 @@
-*! version 1.0.0 29Feb2024
+*! version 1.0.1 08Mar2024
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com> and Jerray Chang <jerray@bu.edu>
@@ -7,10 +7,15 @@ capture program drop multe
 program multe, eclass
     version 14.1
 
-    syntax [anything(everything)] [if] [in] [aw pw], [*]
+    qui syntax [anything(everything)] [if] [in] [aw pw], [ESTimates(str) full overlap diff oracle *]
     if `"`anything'"' == "" {
         if ( `"`e(cmd)'"' != "multe" ) error 301
-        Display `e(mata)', `options' repost
+        if ( "`estimates'`full'`overlap'`diff'`oracle'" == "" & replay() ) {
+            Display `e(mata)', `e(displayopts)' repost
+        }
+        else {
+            Display `e(mata)', est(`estimates') `full' `overlap' `diff' `oracle' `options' repost
+        }
         exit 0
     }
 
@@ -187,6 +192,7 @@ program multe, eclass
         local rerun = 1
     }
 
+    * Re-run in overlap sample
     if ( `rerun' ) {
         mata `results'.overlap = `multeworker'.decomposition()
         mata `results'.overlap.touse = st_data(., st_local("touse"))
@@ -196,7 +202,7 @@ program multe, eclass
     * Display standard Stata table; save in e()
     * -----------------------------------------
 
-    Display `results', est(PL)
+    Display `results', est(PL) cluster(`cluster')
     mata st_local("cmdline", "multe " + st_local("0"))
     ereturn local cmdline: copy local cmdline
     ereturn local wtype          = "`weight'"
@@ -219,9 +225,9 @@ program multe, eclass
     mata st_matrix(st_local("full_oracle_se"), `results'.full.seO)
 
     mata st_matrixcolstripe(st_local("full_beta"),      (J(5, 1, ""), `results'.full.labels'))
-    mata st_matrixcolstripe(st_local("full_diff"),      (J(4, 1, ""), `results'.full.labels[1..4]'))
+    mata st_matrixcolstripe(st_local("full_diff"),      (J(4, 1, ""), `results'.full.labels[2..5]'))
     mata st_matrixcolstripe(st_local("full_pop_se"),    (J(5, 1, ""), `results'.full.labels'))
-    mata st_matrixcolstripe(st_local("full_diff_se"),   (J(4, 1, ""), `results'.full.labels[1..4]'))
+    mata st_matrixcolstripe(st_local("full_diff_se"),   (J(4, 1, ""), `results'.full.labels[2..5]'))
     mata st_matrixcolstripe(st_local("full_oracle_se"), (J(5, 1, ""), `results'.full.labels'))
 
     mata `levels' = `results'.Tlevels[2..`Tk']'
@@ -237,8 +243,8 @@ program multe, eclass
     ereturn matrix full_diff      = `full_diff'
     ereturn matrix full_diff_se   = `full_diff_se'
 
-    * Re-run in overlap sample
-    * ------------------------
+    * Results from re-run in overlap sample
+    * -------------------------------------
 
     if ( `rerun' ) {
         tempname overlap_beta overlap_pop_se overlap_oracle_se overlap_diff overlap_diff_se
@@ -250,9 +256,9 @@ program multe, eclass
         mata st_matrix(st_local("overlap_oracle_se"), `results'.overlap.seO)
 
         mata st_matrixcolstripe(st_local("overlap_beta"),      (J(5, 1, ""), `results'.overlap.labels'))
-        mata st_matrixcolstripe(st_local("overlap_diff"),      (J(4, 1, ""), `results'.overlap.labels[1..4]'))
+        mata st_matrixcolstripe(st_local("overlap_diff"),      (J(4, 1, ""), `results'.overlap.labels[2..5]'))
         mata st_matrixcolstripe(st_local("overlap_pop_se"),    (J(5, 1, ""), `results'.overlap.labels'))
-        mata st_matrixcolstripe(st_local("overlap_diff_se"),   (J(4, 1, ""), `results'.overlap.labels[1..4]'))
+        mata st_matrixcolstripe(st_local("overlap_diff_se"),   (J(4, 1, ""), `results'.overlap.labels[2..5]'))
         mata st_matrixcolstripe(st_local("overlap_oracle_se"), (J(5, 1, ""), `results'.overlap.labels'))
 
         mata st_matrixrowstripe(st_local("overlap_beta"),      (J(`Tk'-1, 1, ""), `levels'))
@@ -272,9 +278,11 @@ program multe, eclass
     }
 
     * Show estimates (including tests)
-    tempname fullmatrix
+    tempname fullmatrix diffmatrix
     mata st_matrix("`fullmatrix'", `results'.full.estA#(1\0) :+ `results'.full.seP#(0\1))
+    mata st_matrix("`diffmatrix'", `results'.full.estB#(1\0) :+ `results'.full.seB#(0\1))
     mata st_matrixcolstripe("`fullmatrix'", (J(5, 1, ""), `results'.full.labels'))
+    mata st_matrixcolstripe("`diffmatrix'", (J(4, 1, ""), `results'.full.labels[2..5]'))
 
     tempname sub labs
     mata `labs' = tokens(st_local("Tlevels"))[2..`Tk']
@@ -283,24 +291,31 @@ program multe, eclass
         mata `labs' = (`sub' != "")? st_vlmap(`sub', strtoreal(`labs')): `labs'
     }
     mata st_matrixrowstripe("`fullmatrix'", (J(2*(`Tk'-1), 1, ""), vec(`labs' \ J(1, `Tk'-1, "SE"))))
+    mata st_matrixrowstripe("`diffmatrix'", (J(2*(`Tk'-1), 1, ""), vec(`labs' \ J(1, `Tk'-1, "SE"))))
 
-    mata printf("\nEstimates on full sample:\n")
+    mata printf("\nAlternative Estimates on Full Sample:\n")
     matlist `fullmatrix', format(%7.4g)
     ereturn matrix fullmatrix = `fullmatrix'
+    ereturn matrix diffmatrix = `diffmatrix'
 
     mata printf("\nP-values for null hypothesis of no propensity score variation:\n")
-    mata printf("Wald test: %6.4g\n", `results'.full.Wa.pval)
-    mata printf("  LM test: %6.4g\n", `results'.full.LM.pval)
+    mata printf("Wald test: %9.6g\n", `results'.full.Wa.pval)
+    mata printf("  LM test: %9.6g\n", `results'.full.LM.pval)
 
     if ( `rerun' ) {
-        tempname overlapmatrix
-        mata st_matrix("`overlapmatrix'", `results'.overlap.estA#(1\0) :+ `results'.overlap.seP#(0\1))
-        mata st_matrixcolstripe("`overlapmatrix'", (J(5, 1, ""), `results'.overlap.labels'))
-        mata st_matrixrowstripe("`overlapmatrix'", (J(2*(`Tk'-1), 1, ""), vec(`labs' \ J(1, `Tk'-1, "SE"))))
+        tempname overlapmatrix overlapdiffmatrix
+        mata st_matrix("`overlapmatrix'",     `results'.overlap.estA#(1\0) :+ `results'.overlap.seP#(0\1))
+        mata st_matrix("`overlapdiffmatrix'", `results'.overlap.estB#(1\0) :+ `results'.overlap.seB#(0\1))
 
-        mata printf("\nEstimates on overlap sample:")
+        mata st_matrixcolstripe("`overlapmatrix'",     (J(5, 1, ""), `results'.overlap.labels'))
+        mata st_matrixcolstripe("`overlapdiffmatrix'", (J(4, 1, ""), `results'.overlap.labels[2..5]'))
+        mata st_matrixrowstripe("`overlapmatrix'",     (J(2*(`Tk'-1), 1, ""), vec(`labs' \ J(1, `Tk'-1, "SE"))))
+        mata st_matrixrowstripe("`overlapdiffmatrix'", (J(2*(`Tk'-1), 1, ""), vec(`labs' \ J(1, `Tk'-1, "SE"))))
+
+        mata printf("\nAlternativ Estimates on Overlap Sample:")
         matlist `overlapmatrix', format(%7.4g)
-        ereturn matrix overlapmatrix = `overlapmatrix'
+        ereturn matrix overlapmatrix     = `overlapmatrix'
+        ereturn matrix overlapdiffmatrix = `overlapdiffmatrix'
     }
 
     disp ""
@@ -314,31 +329,9 @@ program multe, eclass
     disp "    {stata multe, est(CW)  overlap diff}"
 end
 
-* xx capture program drop Replay
-* xx program Replay, eclass
-* xx     syntax, [vce(str) GENerate(str) DECOMPosition minmax *]
-* xx     local decomp1 = ("`decomposition'" != "")
-* xx     local decomp2 = (`"`generate'"'    != "")
-* xx     local decomp3 = (`"`minmax'"'      != "")
-* xx     local decomp  = `decomp1' | `decomp2'
-* xx     if (`"`e(cmd)'"' != "multe") error 301
-* xx     if ( `decomp' ) {
-* xx         Decomposition, `generate'
-* xx         if ( `decomp1' ) {
-* xx             mata `namelist'.decomposition.print(`decomp3')
-* xx         }
-* xx         tempname decompmatrix
-* xx         mata `namelist'.decomposition.save("`decompmatrix'")
-* xx         ereturn matrix decomposition = `decompmatrix'
-* xx     }
-* xx     else {
-* xx         Display `namelist', vce(`vce') repost `options'
-* xx     }
-* xx end
-
 capture program drop Display
 program Display, eclass
-    syntax namelist(max=1), ESTimates(str) [full overlap diff oracle repost *]
+    syntax namelist(max=1), ESTimates(str) [full overlap diff oracle repost cluster(str) *]
 
     if ( ("`full'" != "") & ("`overlap'" != "") ) {
         disp as err "unable to display both full and overlap sample results"
@@ -376,6 +369,12 @@ program Display, eclass
         exit 198
     }
 
+    local labPL  "Partly Linear Model"
+    local labOWN "Own Treatment Effects"
+    local labATE "ATE"
+    local labEW  "Easiest-to-estimate Weighted ATE"
+    local labCW  "Easiest-to-estimate Common Weighted ATE"
+
     FreeMatrix b V
     tempname index
     mata `index' = selectindex(`namelist'.`full'`overlap'.labels :== "`estimates'")
@@ -405,7 +404,7 @@ program Display, eclass
     }
     else ereturn post `b' `V', esample(`touse') obs(`r(N)')
 
-    if ( "`e(cluster)'" == "" ) {
+    if ( "`cluster'" == "" ) {
         if ( "`oracle'" == "oracle" ) ereturn local vcetype "Oracle"
         else ereturn local vcetype ""
     }
@@ -414,8 +413,9 @@ program Display, eclass
         else ereturn local vcetype "Cluster"
     }
     ereturn local vce `vce'
+    ereturn local displayopts estimates(`estimates') `full' `overlap' `diff' `oracle'
 
-    _coef_table_header, nomodeltest title(`estimates' Estimates (`full'`overlap' sample))
+    _coef_table_header, nomodeltest title(`lab`estimates'' Estimates (`full'`overlap' sample))
     disp ""
     _coef_table, noempty `options'
 end
