@@ -3,7 +3,7 @@ MulTE
 
 Multiple Treatment Effects
 
-`version 1.0.1 08Mar2024` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
+`version 1.1.0 09Mar2024` | [Installation](#installation) | [Usage](#usage) | [Examples](#examples)
 
 This package implements contamination bias diagnostics in Stata using procedures from
 [Goldsmith-Pinkham, Hull, and Kolesár (2024)](https://arxiv.org/abs/2106.05024),
@@ -16,15 +16,15 @@ From Stata
 ```stata
 local github "https://raw.githubusercontent.com"
 cap noi net uninstall multe
-net install multe, from(`github'/gphk-metrics/stata-multe/main/)
+net install multe, from(`github'/gphk-metrics/stata-multe/issue14_copyR/)
 ```
 
 You can also clone or download the code manually, e.g. to
-`stata-multe-main`, and install from a local folder:
+`stata-multe-issue14_copyR`, and install from a local folder:
 
 ```stata
 cap noi net uninstall multe
-net install multe, from(`c(pwd)'/stata-multe-main)
+net install multe, from(`c(pwd)'/stata-multe-issue14_copyR)
 ```
 
 ### Usage
@@ -38,7 +38,7 @@ At least one of `controls` or `stratum` must be specified.
 
 ### Examples
 
-The examples here are copied from the [vignette for the R package](https://github.com/kolesarm/multe/blob/master/doc/multe.pdf) and adapted for Stata. The vignette also includes an overview of the methods used in this package. 
+The examples here are copied from the [vignette for the R package](https://github.com/kolesarm/multe/blob/master/doc/multe.pdf) and adapted for Stata. The vignette also includes an overview of the methods used in this package.
 
 See [Fryer and Levitt (2013)](https://www.aeaweb.org/articles?id=10.1257/aer.103.2.981) for a description of the data. First, we fit a regression of test scores on a race dummy (the treatment of interest) and a few controls, using sampling weights.
 
@@ -55,7 +55,7 @@ SE) and reports a table with alternative estimates free of contamination bias.
 Partly Linear Model Estimates (full sample)     Number of obs     =      8,806
 
 ------------------------------------------------------------------------------
-             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+   std_iq_24 |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
 -------------+----------------------------------------------------------------
         race |
       Black  |  -.2574154   .0281244    -9.15   0.000    -.3125383   -.2022925
@@ -98,7 +98,7 @@ For more precise definitions, see the methods section of the [R vignette](https:
 ATE Estimates (full sample)                     Number of obs     =      8,806
 
 ------------------------------------------------------------------------------
-             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+   std_iq_24 |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
 -------------+----------------------------------------------------------------
         race |
       Black  |  -.2655242   .0298285    -8.90   0.000    -.3239869   -.2070615
@@ -122,7 +122,7 @@ and are dropped from the overlap sample:
 Partly Linear Model Estimates (full sample)     Number of obs     =      8,806
 
 ------------------------------------------------------------------------------
-             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+   std_iq_24 |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
 -------------+----------------------------------------------------------------
         race |
       Black  |  -.2437653   .0307696    -7.92   0.000    -.3040726    -.183458
@@ -133,32 +133,32 @@ Partly Linear Model Estimates (full sample)     Number of obs     =      8,806
 
 Alternative Estimates on Full Sample:
 
-             |      PL      OWN      ATE       EW       CW 
+             |      PL      OWN      ATE       EW       CW
 -------------+---------------------------------------------
-       Black |  -.2438   -.2043   -.2482    -.218   -.2415 
-          SE |  .03077   .03321   .03553   .01027   .03853 
-    Hispanic |  -.2928   -.2801   -.2878    -.285   -.3001 
-          SE |   .0259   .02671      .03   .00497   .02984 
-       Asian |  -.2739   -.2836   -.2742   -.2839   -.2863 
-          SE |  .03418    .0343   .04195    .0048   .04549 
-       Other |   -.152   -.1277   -.1397   -.1295   -.1452 
-          SE |  .03689   .03736   .03603   .00684   .03817 
+       Black |  -.2438   -.2043   -.2482    -.218   -.2415
+          SE |  .03077   .03321   .03553   .01027   .03853
+    Hispanic |  -.2928   -.2801   -.2878    -.285   -.3001
+          SE |   .0259   .02671      .03   .00497   .02984
+       Asian |  -.2739   -.2836   -.2742   -.2839   -.2863
+          SE |  .03418    .0343   .04195    .0048   .04549
+       Other |   -.152   -.1277        .   -.1295   -.1452
+          SE |  .03689   .03736        .   .00684   .03817
 
 P-values for null hypothesis of no propensity score variation:
 Wald test:  1.3e-275
   LM test:  2.2e-245
 
 Alternativ Estimates on Overlap Sample:
-             |      PL      OWN      ATE       EW       CW 
+             |      PL      OWN      ATE       EW       CW
 -------------+---------------------------------------------
-       Black |  -.2438   -.2043   -.2482    -.218   -.2415 
-          SE |  .03077   .03321   .03553   .01027   .03853 
-    Hispanic |  -.2928   -.2801   -.2878    -.285   -.3001 
-          SE |   .0259   .02671      .03   .00497   .02984 
-       Asian |  -.2739   -.2836   -.2742   -.2839   -.2863 
-          SE |  .03418    .0343   .04195    .0048   .04549 
-       Other |   -.152   -.1277   -.1397   -.1295   -.1452 
-          SE |  .03689   .03736   .03603   .00684   .03817 
+       Black |  -.2458   -.2062   -.2503   -.2199   -.2436
+          SE |  .03074   .03318   .03532   .01023   .03824
+    Hispanic |  -.2932   -.2809    -.288   -.2858   -.2987
+          SE |  .02595   .02676   .03001   .00494   .02987
+       Asian |  -.2741   -.2839    -.274   -.2841   -.2884
+          SE |  .03417   .03429   .04187    .0048   .04563
+       Other |  -.1511    -.127   -.1392   -.1289   -.1459
+          SE |  .03688   .03735   .03618   .00684   .03853
 ```
 
 The issue is that no observations with 6 siblings have race equal to "Other":
@@ -178,34 +178,34 @@ The issue is that no observations with 6 siblings have race equal to "Other":
 
 Thus, the ATE estimator comparing other to white is not identified. The package drops observations with 6 siblings from the sample to form an "overlap sample," where the all estimators are identified. The overlap sample drops all observations from strata that do not have all levels of the treatment as well as all control variables that do not have all levels of the treatment. In this example `siblings` is a control so the dummy for 6 siblings is dropped; however, if this happened for a level of `SES_quintile` then all the observations associated with that level would be dropped.
 
-For a researcher who wants to check whether there is a significant difference between the PL estimator and the other estimators, `e(diffmatrix)` and `e(overlapdiffmatrix)` report the differences between the estimates in the full sample and the overlap sample, respectively, with the corresponding standard errors. 
+For a researcher who wants to check whether there is a significant difference between the PL estimator and the other estimators, `e(diffmatrix)` and `e(overlapdiffmatrix)` report the differences between the estimates in the full sample and the overlap sample, respectively, with the corresponding standard errors.
 
 ```stata
 . matlist e(diffmatrix), format(%7.4g)
 
-             |     OWN      ATE       EW       CW 
+             |     OWN      ATE       EW       CW
 -------------+------------------------------------
-       Black | -.03947    .0044  -.02573  -.00229 
-          SE |  .01204    .0173   .03276    .0205 
-    Hispanic | -.01269  -.00496  -.00783   .00725 
-          SE |  .00571   .01314   .02671   .01245 
-       Asian |  .00975   .00026   .01001   .01238 
-          SE |  .00487    .0246   .03426   .02814 
-       Other |  -.0243  -.01232  -.02246  -.00679 
-          SE |  .00738   .01109   .03713   .01326 
+       Black | -.03947    .0044  -.02573  -.00229
+          SE |  .01204    .0173   .03276    .0205
+    Hispanic | -.01269  -.00496  -.00783   .00725
+          SE |  .00571   .01314   .02671   .01245
+       Asian |  .00975   .00026   .01001   .01238
+          SE |  .00487    .0246   .03426   .02814
+       Other |  -.0243        .  -.02246  -.00679
+          SE |  .00738        .   .03713   .01326
 
 . matlist e(overlapdiffmatrix), format(%7.4g)
 
-             |     OWN      ATE       EW       CW 
+             |     OWN      ATE       EW       CW
 -------------+------------------------------------
-       Black | -.03947    .0044  -.02573  -.00229 
-          SE |  .01204    .0173   .03276    .0205 
-    Hispanic | -.01269  -.00496  -.00783   .00725 
-          SE |  .00571   .01314   .02671   .01245 
-       Asian |  .00975   .00026   .01001   .01238 
-          SE |  .00487    .0246   .03426   .02814 
-       Other |  -.0243  -.01232  -.02246  -.00679 
-          SE |  .00738   .01109   .03713   .01326 
+       Black | -.03958   .00453  -.02592  -.00218
+          SE |  .01201   .01714    .0327   .02023
+    Hispanic | -.01229  -.00523  -.00738   .00554
+          SE |  .00569   .01319   .02678   .01247
+       Asian |  .00978  -8.7e-05      .01   .01433
+          SE |  .00486   .02454   .03426    .0282
+       Other | -.02404  -.01189  -.02221   -.0052
+          SE |  .00739   .01098   .03711   .01337
 ```
 
 We see statistically significant difference between the OWN and PL estimate (i.e. significant contamination bias) for all races, both in the full sample and in the overlap sample. Differences can also be posted after the main estimation:
@@ -216,7 +216,7 @@ We see statistically significant difference between the OWN and PL estimate (i.e
 Own Treatment Effects Estimates (full sample)   Number of obs     =      8,806
 
 ------------------------------------------------------------------------------
-             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+   std_iq_24 |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
 -------------+----------------------------------------------------------------
         race |
       Black  |  -.0394671   .0120418    -3.28   0.001    -.0630686   -.0158656
@@ -232,13 +232,13 @@ Own Treatment Effects Estimates (overlap sample)
                                                 Number of obs     =      8,806
 
 ------------------------------------------------------------------------------
-             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+   std_iq_24 |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
 -------------+----------------------------------------------------------------
         race |
-      Black  |  -.0394671   .0120418    -3.28   0.001    -.0630686   -.0158656
-   Hispanic  |  -.0126872   .0057131    -2.22   0.026    -.0238847   -.0014898
-      Asian  |    .009752   .0048651     2.00   0.045     .0002166    .0192874
-      Other  |  -.0242985   .0073833    -3.29   0.001    -.0387696   -.0098274
+      Black  |  -.0395843   .0120096    -3.30   0.001    -.0631227   -.0160458
+   Hispanic  |    -.01229   .0056924    -2.16   0.031    -.0234468   -.0011332
+      Asian  |    .009776   .0048602     2.01   0.044     .0002502    .0193019
+      Other  |  -.0240377   .0073857    -3.25   0.001    -.0385134    -.009562
 ------------------------------------------------------------------------------
 ```
 
@@ -253,19 +253,21 @@ ATE Estimates (full sample)                     Number of obs     =      8,806
 
 ------------------------------------------------------------------------------
              |               Oracle
-             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+   std_iq_24 |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
 -------------+----------------------------------------------------------------
         race |
       Black  |  -.2481627   .0354964    -6.99   0.000    -.3177343   -.1785911
    Hispanic  |  -.2878414   .0299246    -9.62   0.000    -.3464926   -.2291902
       Asian  |  -.2741527   .0418856    -6.55   0.000    -.3562469   -.1920584
-      Other  |   -.139659   .0359595    -3.88   0.000    -.2101384   -.0691796
+      Other  |          0  (omitted)
 ------------------------------------------------------------------------------
 ```
 
 These oracle standard errors don't account for estimation error in the
-propensity score, in contrast to the default standard errors. Last, Specifying
-the `cluster()` argument allows for computation of clustered standard errors:
+propensity score, in contrast to the default standard errors (note since ATE
+was not identified for Other, Stata interprets it as an omitted category
+for this estimator). Last, Specifying the `cluster()` argument allows for
+computation of clustered standard errors:
 
 ```
 . local controls i.age_24 female
@@ -279,7 +281,7 @@ Partly Linear Model Estimates (full sample)     Number of obs     =      8,806
 
 ------------------------------------------------------------------------------
              |               Cluster
-             |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
+   std_iq_24 |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval]
 -------------+----------------------------------------------------------------
         race |
       Black  |  -.2574154   .0411564    -6.25   0.000    -.3380804   -.1767504
@@ -290,16 +292,16 @@ Partly Linear Model Estimates (full sample)     Number of obs     =      8,806
 
 Alternative Estimates on Full Sample:
 
-             |      PL      OWN      ATE       EW       CW 
+             |      PL      OWN      ATE       EW       CW
 -------------+---------------------------------------------
-       Black |  -.2574   -.2482   -.2655    -.255   -.2604 
-          SE |  .04116   .04248   .04099    .0085   .04199 
-    Hispanic |  -.2931   -.2829   -.2992   -.2862   -.2944 
-          SE |  .04408   .04541    .0495   .00516   .04738 
-       Asian |  -.2621   -.2609   -.2599   -.2611   -.2694 
-          SE |  .05211   .05234   .06194   .00373   .06755 
-       Other |  -.1563   -.1448   -.1503   -.1447   -.1522 
-          SE |  .04037   .04161   .04099   .00605   .04278 
+       Black |  -.2574   -.2482   -.2655    -.255   -.2604
+          SE |  .04116   .04248   .04099    .0085   .04199
+    Hispanic |  -.2931   -.2829   -.2992   -.2862   -.2944
+          SE |  .04408   .04541    .0495   .00516   .04738
+       Asian |  -.2621   -.2609   -.2599   -.2611   -.2694
+          SE |  .05211   .05234   .06194   .00373   .06755
+       Other |  -.1563   -.1448   -.1503   -.1447   -.1522
+          SE |  .04037   .04161   .04099   .00605   .04278
 
 P-values for null hypothesis of no propensity score variation:
 Wald test:  9.4e-133

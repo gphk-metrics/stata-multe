@@ -1,4 +1,4 @@
-*! version 1.0.1 08Mar2024
+*! version 1.1.0 09Mar2024
 *! Multiple Treatment Effects Regression
 *! Based code and notes by Michal Kolesár <kolesarmi@googlemail dotcom>
 *! Adapted for Stata by Mauricio Caceres Bravo <mauricio.caceres.bravo@gmail.com> and Jerray Chang <jerray@bu.edu>
@@ -11,11 +11,12 @@ program multe, eclass
     if `"`anything'"' == "" {
         if ( `"`e(cmd)'"' != "multe" ) error 301
         if ( "`estimates'`full'`overlap'`diff'`oracle'" == "" & replay() ) {
-            Display `e(mata)', `e(displayopts)' repost
+            Post `e(mata)', `e(displayopts)' repost
         }
         else {
-            Display `e(mata)', est(`estimates') `full' `overlap' `diff' `oracle' `options' repost
+            Post `e(mata)', est(`estimates') `full' `overlap' `diff' `oracle' `options' repost
         }
+        Display, title(`coeftitle') `options'
         exit 0
     }
 
@@ -30,7 +31,6 @@ program multe, eclass
         MATAsave(str)          /// Save resulting mata object
         debug                  ///
     ]
-    * absorb(str) /// absorb var(s)
 
     * NB: Sometimes Stata idiosyncrasies drive me to madness.  For example,
     * in this case to read the correct set of variables used in an interacted
@@ -102,15 +102,13 @@ program multe, eclass
     }
 
     * Get omitted varlist
-    tempname zomit zomitbase
+    tempname zomit
     helper_strip_omitted `X' `Wi' if `touse' `wcall', noconstant extra(b1.`T')
     local zfull  `r(expanded)'
     local zindep `r(varlist)'
-    local zreg   `r(regress)'
-    matrix `zomit'     = r(omit)
-    matrix `zomitbase' = r(omitbase)
+    matrix `zomit' = r(omit)
     foreach var of local zfull {
-        if regexm("`var'", "([0-9]+).*o\.(.+)") {
+        if regexm("`var'", "([0-9]+|^).*o\.(.+)") {
             mata st_local("map", tokens(st_local("Slevels"))[`=regexs(1)'])
             local name = regexs(2)
             if ( `"`stratum'"' != "" ) {
@@ -119,6 +117,12 @@ program multe, eclass
             disp "note: `map'.`name' omitted because of collinearity"
         }
     }
+
+    tempname ziomit
+    helper_strip_omitted ibn.`T'#c.(`zindep') if `touse' `wcall', noconstant
+    local zifull  `r(expanded)'
+    local ziindep `r(varlist)'
+    matrix `ziomit' = r(omit)
 
     * 0. Base decomposition
     * ---------------------
@@ -130,9 +134,7 @@ program multe, eclass
     mata `results'.Tvar       = st_local("treatment")
     mata `results'.Yvar       = st_local("Y")
     mata `results'.Tlevels    = tokens(st_local("Tlevels"))
-    mata `results'.full       = `multeworker'.decomposition()
-    mata `results'.full.touse = st_data(., st_local("touse"))
-    mata `results'.full.N     = sum(`results'.full.touse)
+    mata `results'.full       = `multeworker'.decomposition(0)
 
     * 1. Drop strata with no overlap
     * ------------------------------
@@ -168,43 +170,43 @@ program multe, eclass
     * 2. Drop controls that don't have within-treatment variation
     * -----------------------------------------------------------
 
-    tempname zany zanybase zlevel zlevelbase
-    mata `zany'     = J(1, `:list sizeof zfull', 0)
-    mata `zanybase' = J(1, `:list sizeof zfull', 0)
+    tempname zany zlevel
+    mata `zany' = J(1, `:list sizeof zindep', 0)
     forvalues j = 1 / `Tk' {
-        helper_strip_omitted `zfull' if `touse' & (`T' == `j') `wcall', noconstant
-        mata `zlevel'     = st_matrix("r(omit)")
-        mata `zlevelbase' = st_matrix("r(omitbase)")
-        mata `zany'    [selectindex(`zlevel')]     = select(`zlevel',     `zlevel')
-        mata `zanybase'[selectindex(`zlevelbase')] = select(`zlevelbase', `zlevelbase')
+        if ( `j' == 1 ) local bn bn
+        else local bn
+        helper_strip_omitted 1.`cons2'#c.(`zindep') if `touse' & (`T' == `j') `wcall', noconstant
+        mata `zlevel' = st_matrix("r(omit)")
+        mata `zany'[selectindex(`zlevel')] = select(`zlevel', `zlevel')
     }
-    mata st_local("zreg2", invtokens(select(tokens(st_local("zfull")), !`zanybase')))
-    mata st_matrix("`zomit'",     `zany')
-    mata st_matrix("`zomitbase'", `zanybase')
+    mata st_matrix("`zomit'",  `zany')
+    mata st_local("zrerun",  strofreal(any(`zany')))
 
-    if ( "`zreg2'" != "`zreg'" ) {
-        local zdrop: list zreg - zreg2
-        local zreg: copy local zreg2
+    * Re-run in overlap sample
+    if ( `zrerun' ) {
+        mata st_local("zindep2", invtokens(select(tokens(st_local("zindep")), !`zany')))
+        local zdrop: list zindep - zindep2
+        local zindep: copy local zindep2
         disp "The following variables have no within-treatment variation"
         disp "and are dropped from the overlap sample:"
         foreach var of local zdrop {
-            disp "    `var'"
+            disp _col(8) "`var'"
         }
         local rerun = 1
-    }
 
-    * Re-run in overlap sample
-    if ( `rerun' ) {
-        mata `results'.overlap = `multeworker'.decomposition()
-        mata `results'.overlap.touse = st_data(., st_local("touse"))
-        mata `results'.overlap.N     = sum(`results'.overlap.touse)
-        mata `results'.has_overlap   = 1
+        fvexpand ibn.`T'#c.(`zindep')
+        local zifull  `r(varlist)'
+        local ziindep `r(varlist)'
+        mata st_matrix("`ziomit'", J(1, `:list sizeof zindep' * `Tk', 0))
+
+        mata `results'.overlap = `multeworker'.decomposition(1)
+        mata `results'.has_overlap = 1
     }
 
     * Display standard Stata table; save in e()
     * -----------------------------------------
 
-    Display `results', est(PL) cluster(`cluster')
+    Post `results', est(PL) cluster(`cluster')
     mata st_local("cmdline", "multe " + st_local("0"))
     ereturn local cmdline: copy local cmdline
     ereturn local wtype          = "`weight'"
@@ -216,6 +218,7 @@ program multe, eclass
     ereturn local cluster        = "`cluster'"
     ereturn local stratum        = "`stratum'"
     ereturn local mata           = "`results'"
+    Display, title(`coeftitle') `options'
 
     * Save full results
     tempname full_beta full_pop_se full_oracle_se full_diff full_diff_se levels
@@ -331,8 +334,8 @@ program multe, eclass
     disp "    {stata multe, est(CW)  overlap diff}"
 end
 
-capture program drop Display
-program Display, eclass
+capture program drop Post
+program Post, eclass
     syntax namelist(max=1), ESTimates(str) [full overlap diff oracle repost cluster(str) *]
 
     if ( ("`full'" != "") & ("`overlap'" != "") ) {
@@ -416,7 +419,14 @@ program Display, eclass
     }
     ereturn local displayopts estimates(`estimates') `full' `overlap' `diff' `oracle'
 
-    _coef_table_header, nomodeltest title(`lab`estimates'' Estimates (`full'`overlap' sample))
+    c_local coeftitle `lab`estimates'' Estimates (`full'`overlap' sample)
+    c_local options: copy local options
+end
+
+capture program drop Display
+program Display
+    syntax, [title(str asis) *]
+    _coef_table_header, nomodeltest title(`title')
     disp ""
     _coef_table, noempty `options'
 end
@@ -448,27 +458,15 @@ program helper_strip_omitted, rclass
     matrix `b' = J(1, `:list sizeof expanded', .)
     matrix colnames `b' = `expanded'
     matrix `b' = `b'[1,(`:list sizeof extra'+1)..`:list sizeof expanded']
+    mata st_local("expanded", invtokens(tokens(st_local("expanded"))[`keep']))
 
     _ms_omit_info `b'
     matrix `omit' = r(omit)
-    mata `final' = select(st_matrixcolstripe("`b'")[., 2]', !st_matrix("r(omit)"))
-    mata st_local("varlist",  invtokens(cols(`final')? `final': ""))
-    mata st_local("expanded", invtokens(tokens(st_local("expanded"))[`keep']))
+    mata `final' = select(tokens(st_local("expanded")), !st_matrix("r(omit)"))
+    mata st_local("varlist", invtokens(cols(`final')? `final': ""))
     local controls: list expanded - extra
-
-    local i = 0
-    matrix `omitbase' = J(1, `:list sizeof controls', 0)
-    foreach var of local controls {
-        local ++i
-        if ( regexm("`var'", "([0-9]+|^).*o\.(.+)") ) {
-            matrix `omitbase'[1, `i'] = 1
-        }
-    }
-    mata st_local("regress", invtokens(select(tokens(st_local("controls")), !st_matrix("`omitbase'"))))
 
     return local expanded: copy local expanded
     return local varlist:  copy local varlist
-    return local regress:  copy local regress
-    return matrix omit     = `omit'
-    return matrix omitbase = `omitbase'
+    return matrix omit = `omit'
 end

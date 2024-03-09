@@ -16,14 +16,15 @@ mata:
 real matrix function multe_helper_Vhat(real matrix psi, real colvector cluster)
 {
     real scalar G
-    real matrix psisum
+    real matrix _psi, psisum
+    _psi = editmissing(psi, 0)
     if ( missing(cluster) ) {
-        // G = rows(psi)
-        // return((G / (G - 1)) :* quadcross(psi, psi))
-        return(quadcross(psi, psi))
+        // G = rows(_psi)
+        // return((G / (G - 1)) :* quadcross(_psi, _psi))
+        return(quadcross(_psi, _psi))
     }
     else {
-        psisum = sort((cluster, psi), 1)
+        psisum = sort((cluster, _psi), 1)
         psisum = panelsum(psisum[., 2..cols(psisum)], panelsetup(psisum, 1))
         G = rows(psisum)
         return((G / (G - 1)) :* quadcross(psisum, psisum))

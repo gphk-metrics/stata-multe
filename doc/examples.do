@@ -1,3 +1,7 @@
+* end
+* exit, clear
+* stata14-mp
+
 * Data from Fryer and Levitt (2013)
 use test/example_fryer_levitt.dta, clear
 

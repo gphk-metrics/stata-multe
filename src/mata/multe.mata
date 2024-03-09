@@ -56,8 +56,8 @@ struct MulTE_Info
     string scalar X
     string scalar Wi
     string scalar cons2
-    string scalar zreg
     string scalar zindep
+    string scalar zifull
 
     real scalar Tk
     real scalar N
@@ -68,7 +68,7 @@ struct MulTE_Info
     real scalar debug
 
     real vector zomit
-    real vector zomitbase
+    real vector ziomit
 }
 
 // ----------------------------------------------------------------- //
@@ -80,7 +80,6 @@ void function MulTE::new()
     cache  = 0
     labels = "PL", "OWN", "ATE", "EW", "CW"
     this.info.zerotol = 1e-6
-    this.setup()
 }
 
 void function MulTE::setup()
@@ -93,119 +92,105 @@ void function MulTE::setup()
     this.info.T          = st_local("T")
     this.info.X          = st_local("X")
     this.info.Wi         = st_local("Wi")
-    this.info.zreg       = st_local("zreg")
     this.info.zindep     = st_local("zindep")
+    this.info.zifull     = st_local("zifull")
     this.info.cons2      = st_local("cons2")
     this.info.zomit      = st_matrix(st_local("zomit"))
-    this.info.zomitbase  = st_matrix(st_local("zomitbase"))
+    this.info.ziomit     = st_matrix(st_local("ziomit"))
     this.info.Tk         = strtoreal(st_local("Tk"))
     this.info.wgt        = (st_local("wgt") != "")
     this.info.debug      = (st_local("debug") != "")
     this.info.cw_uniform = (st_local("cw_uniform") != "")
 }
 
-struct MulTE_Results scalar MulTE::decomposition()
+// res = MulTE_Results()
+struct MulTE_Results scalar MulTE::decomposition(real scalar isorted)
 {
     struct MulTE_Results scalar res
-    struct multe_helper_results scalar rk, ro, dtXr, Xhat
-    string scalar regopts, regcall, regtol, mtol, ir_start
+    struct multe_helper_results scalar rl, ri, rk, ro, dtXr, Xhat
+    string scalar regopts, regcall, regtol, zvars, mtol, ir_start
     string vector mlfit
+    string matrix ir_nam
     real scalar i, j, wsum, ir_diff
     real vector Y, T, X0, C, ws, LM, Wa
-    real vector rl, ri, Zb, s, w_s, Y_s, lam, ipi, cw
+    real vector Zb, s, w_s, Y_s, lam, ipi, cw
     real vector seli, selj, idx1, idx1n, th1, th, si
-    real matrix Zm, Xf, tX, deltak, gamk, dtX, pp, Z_s, X_s
+    real matrix Zi, Zm, Xf, tX, deltak, gamk, dtX, pp, Z_s, X_s
     real matrix psi_beta, psi_al, psi_po, psi_ownk, psi_k, psi_1, psi_or, psi_rk, psi_ri
-    real matrix ir_omit, ir_gam, ir_nam, ir_ord, ir_X, ate0, ate
+    real matrix ir_omit, ir_gam, ir_ord, ate0, ate
     real matrix pis, vpi, xf1, M0, M, xf1l, xf1r, a
     real matrix Sc, He, He1112, Vu, pis0, Scr, Her, Her1112, Vr
 
+    this.setup()
     res.labels = this.labels
     res.estA = res.estB = res.seP = res.seB = res.seO = J(this.info.Tk-1, 5, .)
 
-    regopts = sprintf("%s if %s, noconstant", this.info.wcall, this.info.touse)
-    regcall = sprintf("qui reg %s b1.%s %s %s", this.info.Y, this.info.T, this.info.zreg, regopts)
-
-    this.debug("run base reg")
-    stata(regcall)
-    stata("tempvar rl Xf")
-    stata(sprintf("predict %s, resid", st_local("rl")))
-
-    this.info.N    = st_numscalar("e(N)")
-    this.info.Zk   = length(st_matrix("e(b)")) - this.info.Tk
-    res.estA[., 1] = st_matrix("e(b)")[2..this.info.Tk]'
-
     this.debug("read in data")
-    rl   = st_data(., st_local("rl"), this.info.touse)
-    Y    = st_data(., this.info.Y,  this.info.touse)
-    T    = st_data(., this.info.T,  this.info.touse)
-    X0   = T :== 1
-    Zm   = st_data(., sprintf("%s#c.(%s)", this.info.cons2, this.info.zreg), this.info.touse)
-    Xf   = J(this.info.N, this.info.Tk-1, 0)
-    tX   = J(this.info.N, this.info.Tk-1, 0)
-    C    = this.info.cluster == ""? .: st_data(., this.info.cluster, this.info.touse)
-    ws   = this.info.wgt? st_data(., this.info.wgtvar, this.info.touse): 1
-    wsum = this.info.wgt? quadsum(ws): this.info.N
-
+    res.touse = st_data(., this.info.touse)
+    res.N     = sum(res.touse)
+    Y     = st_data(., this.info.Y, this.info.touse)
+    T     = st_data(., this.info.T, this.info.touse)
+    X0    = T :== 1
+    zvars = sprintf("%s#c.(%s)", this.info.cons2, this.info.zindep)
+    Zm    = st_data(., zvars, this.info.touse)
+    Xf    = J(res.N, this.info.Tk-1, 0)
+    tX    = J(res.N, this.info.Tk-1, 0)
+    C     = this.info.cluster == ""? .: st_data(., this.info.cluster, this.info.touse)
+    ws    = this.info.wgt? st_data(., this.info.wgtvar, this.info.touse): 1
+    wsum  = this.info.wgt? quadsum(ws): res.N
     for (j = 1; j < this.info.Tk; j++) {
         Xf[., j] = (T :== (j+1))
     }
 
-    this.debug("run linear propensity")
-    (void) st_addvar("byte", st_local("Xf"))
-    for (j = 1; j < this.info.Tk; j++) {
-        (void) st_store(., st_local("Xf"), Xf[., j])
-        regcall = sprintf("qui reg %s %s %s", st_local("Xf"), this.info.zreg, regopts)
-        stata(regcall)
-        tX[., j] = Xf[., j] :- Zm * st_matrix("e(b)")'
-    }
+    // Regs are largely run within mata because we don't want Stata to drop
+    // collinear variables without us explicitly allowing for it. 
+    this.debug("run base reg")
+    this.info.Zk = cols(Zm)
+    regopts = sprintf("%s if %s, noconstant", this.info.wcall, this.info.touse)
+    rl = multe_helper_olswr(Y, (Xf, Zm), ws)
+    res.estA[., 1] = rl.coefficients[1::(this.info.Tk-1)]
 
-    psi_beta = (tX :* ws :* rl) * invsym(quadcross(tX, ws, tX))
+    this.debug("run linear propensity")
+    for (j = 1; j < this.info.Tk; j++) {
+        tX[., j] = Xf[., j] - Zm * multe_helper_olsw(Xf[., j], Zm, ws)
+    }
+    psi_beta = (tX :* ws :* rl.residuals) * invsym(quadcross(tX, ws, tX))
     res.Vpop_PL = multe_helper_Vhat(psi_beta, C)
     res.seP[., 1] = sqrt(diagonal(res.Vpop_PL))
 
-    this.debug("run fully interacted model")
-    regcall = sprintf("qui reg %s ibn.%s#c.(%s) %s", this.info.Y, this.info.T, this.info.zreg, regopts)
-    stata(regcall)
-    stata("tempvar ri")
-    stata(sprintf("predict %s, resid", st_local("ri")))
-    ri = st_data(., st_local("ri"), this.info.touse)
-
-    // TODO: If there are collinear variables within treatment (i.e. in
-    // the interacted model) then their coefficient are not identified and
-    // Stata loops forever. However, the choice probabilities ARE idnetified
-    // (i.e. the likelihood has a maximum just not a unique maximizer). In
-    // this case we check convergence in the choice probabilities. Current
-    // implementation is ad hoc and neds work.
-
-    this.debug("parse omit info")
-    stata("_ms_omit_info e(b)")
-    ir_omit = st_matrix("r(omit)")
-    ir_gam  = st_matrix("e(b)")
-    ir_nam  = st_matrixcolstripe("e(b)")[., 2]
-    ir_ord  = order((strtoreal(ustrregexra(ir_nam, "^(\d+).+", "$1")), (1::length(ir_gam))), (1, 2))
-    ir_nam  = colshape(ustrregexra(ir_nam[ir_ord], ".+#", ""), this.info.Zk)'
-    ir_omit = colshape(ir_omit[ir_ord], this.info.Zk)'
+    // Note stata orders variables differently for the collinearity check so
+    // we can't directly use the info from the previous check.
+    this.debug("parse omit info for interacted model")
+    ir_omit = this.info.ziomit
+    ir_nam  = tokens(this.info.zifull)'
+    ir_ord  = order((strtoreal(ustrregexra(ir_nam, "^(\d+).+", "$1")), (1::length(ir_omit))), (1, 2))
+    ir_nam  = rowshape(ustrregexra(ir_nam[ir_ord], ".+#", ""), this.info.Tk)'
+    ir_omit = rowshape(isorted? ir_omit: ir_omit[ir_ord], this.info.Tk)'
     ir_diff = 0
-    for(j = 2; j <= this.info.Tk; j++) {
-        ir_diff = any(ir_nam[., 1]  :!= ir_nam[., j]) | any(ir_omit[., 1] :!= ir_omit[., j])
+    for(j = 1; j <= this.info.Tk; j++) {
+        ir_diff = any(ir_nam[., 1]  :!= ir_nam[., j]) | any(ir_omit[., j])
     }
-    ir_gam  = ir_gam[ir_ord]
-    ir_gam  = (colshape(ir_gam[(this.info.Zk+1)::cols(ir_gam)], this.info.Zk) :- ir_gam[1::this.info.Zk])'
-    ir_omit = ir_omit[., 1]'
-    ir_nam  = ir_nam[., 1]'
+    // zvars = sprintf("ibn.%s#c.(%s)", this.info.T, this.info.zindep)
+    // Zi    = select(st_data(., zvars, this.info.touse)[., ir_ord'], vec(ir_omit)')
+    this.debug("run fully interacted model")
+    Zi      = st_data(., this.info.zifull, this.info.touse)[., ir_ord]
+    ri      = multe_helper_olswr(Y, Zi, ws)
+    ir_gam  = ri.coefficients
+    ir_gam[selectindex(vec(ir_omit))] = J(sum(ir_omit), 1, .)
+    ir_gam  = (rowshape(ir_gam[(this.info.Zk+1)::rows(ir_gam)], this.info.Tk-1)' :- ir_gam[1::this.info.Zk])
     Zb      = mean(Zm, ws)
     res.estA[., 3] = (Zb * ir_gam)'
 
     this.debug("interacted model results")
-    ir_X   = st_data(., sprintf("ibn.%s#c.(%s)", this.info.T, this.info.zreg), this.info.touse)[., ir_ord]
-    psi_al = (ir_X :* ws :* ri) * invsym(quadcross(ir_X, ws, ir_X))
-    ir_X   = .
+    psi_al = (Zi :* ws :* ri.residuals) * invsym(quadcross(Zi, ws, Zi))
+    psi_al[., selectindex(vec(ir_omit))] = J(res.N, sum(ir_omit), .)
+    Zi     = .
     ate0   = psi_al[., 1..this.info.Zk] * Zb'
-    ate    = J(this.info.N, this.info.Tk-1, .)
+    ate    = J(res.N, this.info.Tk-1, .)
     for(j = 1; j < this.info.Tk; j++) {
         ate[., j] = psi_al[., ((j * this.info.Zk)+1)..((j+1)*this.info.Zk)] * Zb'
     }
+    psi_al[., selectindex(vec(ir_omit))] = J(res.N, sum(ir_omit), 0)
     ate           = ate :- ate0
     res.Vo_ATE    = multe_helper_Vhat(ate, C)
     res.seO[., 3] = sqrt(diagonal(res.Vo_ATE))
@@ -223,8 +208,8 @@ struct MulTE_Results scalar MulTE::decomposition()
     for(j = 1; j < this.info.Tk; j++) {
         rk     = multe_helper_olswr((Xf[.,j] :* Zm), (Xf, Zm), ws)
         deltak = rk.coefficients[j,.]
-        gamk   = ir_gam[.,j]
-        res.estA[j, 2] = deltak * gamk
+        gamk   = select(ir_gam[.,j], deltak')
+        res.estA[j, 2] = select(deltak, deltak) * gamk
         if ( this.info.Tk > 2 ) {
             dtXr = multe_helper_olswr(tX[.,j], tX[., multe_helper_antiselect(1..(this.info.Tk-1), j)], ws)
             dtX  = dtXr.residuals
@@ -234,7 +219,7 @@ struct MulTE_Results scalar MulTE::decomposition()
             dtX = tX
         }
         pp = psi_al[., ((j * this.info.Zk)+1)..((j + 1)*this.info.Zk)] :- psi_al[., 1..this.info.Zk]
-        psi_ownk[., j] = pp * deltak' + (ws :* dtX :* rk.residuals :/ quadsum(ws:*(dtX:^2))) * gamk
+        psi_ownk[., j] = pp * deltak' + select(ws :* dtX :* rk.residuals :/ quadsum(ws:*(dtX:^2)), deltak) * gamk
 
         // 1 at a time
         s     = selectindex(X0 :| Xf[., j])
@@ -248,7 +233,7 @@ struct MulTE_Results scalar MulTE::decomposition()
         res.estA[j, 4] = rk.coefficients[1, 1]
         psi_k          = w_s :* Xhat.residuals :/ quadsum(w_s:*(Xhat.residuals:^2))
         psi_rk[s, j]   = rk.residuals :* psi_k
-        psi_ri[s, j]   = ri[s,.] :* psi_k
+        psi_ri[s, j]   = ri.residuals[s,.] :* psi_k
 
         // Test against 1 at a time
         psi_1[s, j] = psi_1[s, j] :- (rk.residuals:*psi_k)
@@ -265,14 +250,22 @@ struct MulTE_Results scalar MulTE::decomposition()
     res.seP[., 4] = sqrt(diagonal(res.Vdiff_EW))
     res.seO[., 4] = sqrt(diagonal(res.Vo_EW))
 
+    // TODO: If there are collinear variables within treatment (i.e. in
+    // the interacted model) then their coefficient are not identified and
+    // Stata loops forever. However, the choice probabilities ARE idnetified
+    // (i.e. the likelihood has a maximum just not a unique maximizer). In
+    // this case we check convergence in the choice probabilities. Current
+    // implementation is ad hoc and neds work.
+
     this.debug("generalized overlap weights")
     mlfit = J(1, this.info.Tk, "")
     for(j = 1; j <= this.info.Tk; j++) {
         mlfit[j] = st_tempname()
     }
-    regcall = sprintf("qui mlogit %s %s %s",
+    regcall = sprintf("qui mlogit %s %s#c.(%s) %s",
                       this.info.T,
-                      this.info.zreg,
+                      this.info.cons2,
+                      this.info.zindep,
                       regopts + " base(1) " + (ir_diff? " iter(100) ": ""))
     stata(regcall)
     stata(sprintf("predict %s, pr", invtokens(mlfit)))
@@ -315,7 +308,7 @@ struct MulTE_Results scalar MulTE::decomposition()
     // Zm      = select(Zm, !ir_omit)
     // this.info.Zk = cols(Zm)
 
-    Sc = J(this.info.N, (this.info.Tk-1)*this.info.Zk, .)
+    Sc = J(res.N, (this.info.Tk-1)*this.info.Zk, .)
     He = J((this.info.Tk-1) * this.info.Zk, (this.info.Tk-1) * this.info.Zk, .)
     for (i = 1; i < this.info.Tk; i++) {
         seli = (this.info.Zk * (i-1) + 1)..(this.info.Zk*i)
@@ -381,7 +374,7 @@ struct MulTE_Results scalar MulTE::decomposition()
         ro             = multe_helper_olswr(Y, (J(rows(Xf), 1, 1), Xf), cw :* ws)
         res.estA[., 5] = ro.coefficients[2::this.info.Tk]
         psi_or         = (ws :* lam :/ quadsum(ws :* lam)) :* ((Xf :* ipi[., 2..this.info.Tk]) :- (X0 :* ipi[, 1]))
-        res.Vo_CW      = multe_helper_Vhat(ri :* psi_or, C)
+        res.Vo_CW      = multe_helper_Vhat(ri.residuals :* psi_or, C)
         res.seO[., 5]  = sqrt(diagonal(res.Vo_CW))
 
         // Final step: calculate se_po for overlap weights. model.matrix
@@ -448,7 +441,7 @@ void function multe_helper_post(string scalar b, string scalar V, struct MulTE_R
     sest    = J(res.Tk, res.Tk, 0)
     sest[2::res.Tk, 2..res.Tk] = st_matrix(V)
 
-    st_matrix(b, rowshape(best', 1))
+    st_matrix(b, editmissing(rowshape(best', 1), 0))
     st_matrixcolstripe(b, (eqnames, rownames))
     st_matrixrowstripe(b, ("", res.Yvar))
 
