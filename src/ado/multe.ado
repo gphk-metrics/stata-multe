@@ -45,12 +45,12 @@ program multe, eclass
     gettoken Y X: varlist
     local Xbak: copy local X
     local Y `Y'
-    local X `cons' `X'
 
     if ( (`"`X'"' == "") & (`"`stratum'"' == "") ) {
         disp as err "no controls; add covariates or specify -stratum()-"
         exit 198
     }
+    local X `cons' `X'
 
     * Mark if, in, and any missing values by obs
     local varlist `varlist' `treatment' `stratum'
@@ -109,12 +109,20 @@ program multe, eclass
     matrix `zomit' = r(omit)
     foreach var of local zfull {
         if regexm("`var'", "([0-9]+|^).*o\.(.+)") {
-            mata st_local("map", tokens(st_local("Slevels"))[`=regexs(1)'])
             local name = regexs(2)
             if ( `"`stratum'"' != "" ) {
                 local name: subinstr local name "`W'" "`stratum'"
+                if ( strpos("`name'", "`stratum'") ) {
+                    mata st_local("map", tokens(st_local("Slevels"))[`=regexs(1)'])
+                }
+                else local map = regexs(1)
+                if ( "`map'" != "" ) local dot .
+                else local dot
+                disp "note: `map'`dot'`name' omitted because of collinearity"
             }
-            disp "note: `map'.`name' omitted because of collinearity"
+            else {
+                disp "note: `name' omitted because of collinearity"
+            }
         }
     }
 

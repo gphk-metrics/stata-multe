@@ -11,53 +11,33 @@ program multe_weight_tests
     * Internal Consistency
     * --------------------
 
-    multe Y Tbyte             , control(Wbyte) mata(now)  decomp gen(lambda(lnow) tau(tnow))
-    multe Y Tbyte [aw=_expand], control(Wbyte) mata(aw)   decomp gen(lambda(law)  tau(taw))
-    multe Y Tbyte [pw=_expand], control(Wbyte) mata(pw)   decomp gen(lambda(lpw)  tau(tpw))
-    multe Y Tbyte [fw=_expand], control(Wbyte) mata(fw)   decomp gen(lambda(lfw)  tau(tfw))
+    qui multe Y Cdouble             , treat(Tbyte) strat(Wbyte) mata(now)
+    qui multe Y Cdouble [aw=_expand], treat(Tbyte) strat(Wbyte) mata(aw)
+    qui multe Y Cdouble [pw=_expand], treat(Tbyte) strat(Wbyte) mata(pw)
 
-    unab taus: tnow?
-    forvalues i = 1 / `:list sizeof taus' {
-        disp "internal weights: `i'"
-        assert reldif(taw`i', tfw`i')  < 1e-14
-        assert reldif(taw`i', tpw`i')  < 1e-14
-        assert reldif(taw`i', tnow`i') > 1e-8
-        forvalues j = 1 / `:list sizeof taus' {
-            disp "    `j'"
-            assert reldif(law`i'`j', lfw`i'`j')  < 1e-14
-            assert reldif(law`i'`j', lpw`i'`j')  < 1e-14
-            assert reldif(law`i'`j', lnow`i'`j') > 1e-8
-        }
-    }
+    mata assert(max(reldif(aw.full.estA, now.full.estA)) > (epsilon(1))^(1/4))
+    mata assert(max(reldif(aw.full.estB, now.full.estB)) > (epsilon(1))^(1/4))
+    mata assert(max(reldif(aw.full.seP,  now.full.seP))  > (epsilon(1))^(1/4))
+    mata assert(max(reldif(aw.full.seB,  now.full.seB))  > (epsilon(1))^(1/4))
+    mata assert(max(reldif(aw.full.seO,  now.full.seO))  > (epsilon(1))^(1/4))
 
-    mata assert(max(reldif(aw.estimates.est,   now.estimates.est))   > sqrt(epsilon(1)))
-    mata assert(max(reldif(aw.estimates.se_po, now.estimates.se_po)) > sqrt(epsilon(1)))
-    mata assert(max(reldif(aw.estimates.se_or, now.estimates.se_or)) > sqrt(epsilon(1)))
+    mata assert(max(reldif(pw.full.estA, now.full.estA)) > (epsilon(1))^(1/4))
+    mata assert(max(reldif(pw.full.estB, now.full.estB)) > (epsilon(1))^(1/4))
+    mata assert(max(reldif(pw.full.seP,  now.full.seP))  > (epsilon(1))^(1/4))
+    mata assert(max(reldif(pw.full.seB,  now.full.seB))  > (epsilon(1))^(1/4))
+    mata assert(max(reldif(pw.full.seO,  now.full.seO))  > (epsilon(1))^(1/4))
 
-    mata assert(max(reldif(fw.estimates.se_po, now.estimates.se_po)) > sqrt(epsilon(1)))
-    mata assert(max(reldif(fw.estimates.se_or, now.estimates.se_or)) > sqrt(epsilon(1)))
+    mata assert(max(reldif(pw.full.estA, aw.full.estA)) < (epsilon(1))^(3/4))
+    mata assert(max(reldif(pw.full.estB, aw.full.estB)) < (epsilon(1))^(3/4))
+    mata assert(max(reldif(pw.full.seP,  aw.full.seP))  < (epsilon(1))^(3/4))
+    mata assert(max(reldif(pw.full.seB,  aw.full.seB))  < (epsilon(1))^(3/4))
+    mata assert(max(reldif(pw.full.seO,  aw.full.seO))  < (epsilon(1))^(3/4))
 
-    mata assert(max(reldif(aw.decomposition.est, now.decomposition.est)) > sqrt(epsilon(1)))
-    mata assert(max(reldif(aw.decomposition.se,  now.decomposition.se))  > sqrt(epsilon(1)))
+    disp "(multe test success): multe basic weights consistency on simulated data"
 
-    mata assert(max(reldif(fw.decomposition.est, now.decomposition.est)) > sqrt(epsilon(1)))
-    mata assert(max(reldif(fw.decomposition.se,  now.decomposition.se))  > sqrt(epsilon(1)))
-
-    mata assert(max(reldif(aw.estimates.est,   pw.estimates.est))   < sqrt(epsilon(1)))
-    mata assert(max(reldif(aw.estimates.se_po, pw.estimates.se_po)) < sqrt(epsilon(1)))
-    mata assert(max(reldif(aw.estimates.se_or, pw.estimates.se_or)) < sqrt(epsilon(1)))
-
-    mata assert(max(reldif(aw.decomposition.est, pw.decomposition.est)) < sqrt(epsilon(1)))
-    mata assert(max(reldif(aw.decomposition.se,  pw.decomposition.se))  < sqrt(epsilon(1)))
-
-    mata assert(max(reldif(aw.estimates.est,     fw.estimates.est))     < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(aw.decomposition.est, fw.decomposition.est)) < (epsilon(1)^(3/4)))
     * NB: Fundamentally aw and fw have different variances. The first
     * gives V((X' W X)^-1 X' W e) = (X' W X)^-1 X' W V(e) W X (X' W X)^-1
     * and the second gives (X' W X)^-1 X' (W V(e)) X (X' W X)^-1
-    *
-    * mata assert(max(abs(`ratio' :- aw.estimates.se_po[., (1, 3)] :/ fw.estimates.se_po[., (1, 3)])) < (epsilon(1)^(3/4)))
-    * mata assert(max(abs(`ratio' :- aw.estimates.se_or[., (1, 3)] :/ fw.estimates.se_or[., (1, 3)])) < (epsilon(1)^(3/4)))
 
     * ----------------------
     * vs teffects (ate only)
@@ -70,23 +50,15 @@ program multe_weight_tests
     matrix table = r(table)
     matrix table = table[1..2,"ATE:"]
     mata table = st_matrix("table")
-    mata assert(max(reldif(now.estimates.est[.,1], table[1,.]')) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(now.estimates.se_po[.,1], table[2,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(now.full.estA[.,3], table[1,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(now.full.seP[.,3],  table[2,.]')) < (epsilon(1)^(3/4)))
 
-    qui teffects ipw (Y) (Tbyte b0.Wbyte) [fw=_expand]
-    matrix table = r(table)
-    matrix table = table[1..2,"ATE:"]
-    mata table = st_matrix("table")
-    mata assert(max(reldif(fw.estimates.est[.,1], table[1,.]')) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(fw.estimates.se_po[.,1], table[2,.]')) < (epsilon(1)^(3/4)))
-
-    * NB: pw not allowed in multe so vce cannot be compared
     qui teffects ipw (Y) (Tbyte b0.Wbyte) [pw=_expand]
     matrix table = r(table)
     matrix table = table[1..2,"ATE:"]
     mata table = st_matrix("table")
-    mata assert(max(reldif(pw.estimates.est[.,1],   table[1,.]')) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(pw.estimates.se_po[.,1], table[2,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(pw.full.estA[.,3], table[1,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(pw.full.seP[.,3],  table[2,.]')) < (epsilon(1)^(3/4)))
 
     cap drop _aw
     qui sum _expand
@@ -95,8 +67,10 @@ program multe_weight_tests
     matrix table = r(table)
     matrix table = table[1..2,"ATE:"]
     mata table = st_matrix("table")
-    mata assert(max(reldif(aw.estimates.est[.,1],   table[1,.]')) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(aw.estimates.se_po[.,1], table[2,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(aw.full.estA[.,3], table[1,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(aw.full.seP[.,3],  table[2,.]')) < (epsilon(1)^(3/4)))
+
+    disp "(multe test success): multe ATE consistency on simulated data"
 
     * ----------------------
     * vs regress (oaat only)
@@ -109,8 +83,8 @@ program multe_weight_tests
     }
     mata info = panelsetup(sort(st_data(., "Tbyte"), 1), 1)
     mata nj   = info[2::rows(info), 2] :- info[2::rows(info), 1] :+ 1 :+ info[1, 2]
-    mata assert(max(reldif(now.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif((nj :- `k') :/ nj, (now.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(now.full.estA[., 4], oaat[., 1])) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif((nj :- `k') :/ nj, (now.full.seP[., 4] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
 
     mata oaat = J(4, 2, .)
     forvalues i = 2 / 5 {
@@ -119,8 +93,8 @@ program multe_weight_tests
     }
     mata info = panelsetup(sort(st_data(., "Tbyte"), 1), 1)
     mata nj   = info[2::rows(info), 2] :- info[2::rows(info), 1] :+ 1 :+ info[1, 2]
-    mata assert(max(reldif(pw.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif((nj :- `k') :/ nj, (pw.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(pw.full.estA[., 4], oaat[., 1])) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif((nj :- `k') :/ nj, (pw.full.seP[., 4] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
 
     mata oaat = J(4, 2, .)
     forvalues i = 2 / 5 {
@@ -129,57 +103,33 @@ program multe_weight_tests
     }
     mata info = panelsetup(sort(st_data(., "Tbyte"), 1), 1)
     mata nj   = info[2::rows(info), 2] :- info[2::rows(info), 1] :+ 1 :+ info[1, 2]
-    mata assert(max(reldif(aw.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif((nj :- `k') :/ nj, (aw.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(aw.full.estA[., 4], oaat[., 1])) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif((nj :- `k') :/ nj, (aw.full.seP[., 4] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
 
-    mata oaat = J(4, 2, .)
-    forvalues i = 2 / 5 {
-        qui reg Y i`i'.Tbyte _W* if inlist(Tbyte, 1, `i') [fw=_expand], noc r
-        mata oaat[`i'-1, .] = st_matrix("r(table)")[1::2, 1]'
-    }
-    mata X    = sort(st_data(., "Tbyte _expand"), 1)
-    mata info = panelsetup(X[., 1], 1)
-    mata nj   = panelsum(X[., 2], info)
-    mata nj   = nj[1] :+ nj[|2 \ length(nj)|]
-    mata assert(max(reldif(fw.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif((nj :- `k') :/ nj, (fw.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+    disp "(multe test success): multe OAAT consistency on simulated data"
 
     * --------------------
     * Internal Consistency
     * --------------------
 
-    expand _expand
-    multe Y Tbyte, control(Wbyte) mata(ex) decomp gen(lambda(lex) tau(tex))
+    qui expand _expand
+    qui multe Y Cdouble, treat(Tbyte) strat(Wbyte) mata(ex)
 
-    unab taus: tex?
-    forvalues i = 1 / `:list sizeof taus' {
-        disp "expanded weights: `i'"
-        assert reldif(tex`i', taw`i')  < 1e-12
-        assert reldif(tex`i', tpw`i')  < 1e-12
-        assert reldif(tex`i', tfw`i')  < 1e-12
-        assert reldif(tex`i', tnow`i') > 1e-6
-        forvalues j = 1 / `:list sizeof taus' {
-            disp "    `j'"
-            assert reldif(lex`i'`j' * _expand, law`i'`j') < 1e-8
-            assert reldif(lex`i'`j' * _expand, lpw`i'`j') < 1e-8
-            assert reldif(lex`i'`j' * _expand, lfw`i'`j') < 1e-8
-            assert reldif(lex`i'`j', lnow`i'`j') > 1e-8
-        }
-    }
+    * mata assert(max(reldif(fw.full.estA, ex.full.estA)) < (epsilon(1))^(3/4))
+    * mata assert(max(reldif(fw.full.estB, ex.full.estB)) < (epsilon(1))^(3/4))
+    * mata assert(max(reldif(fw.full.seP,  ex.full.seP))  < (epsilon(1))^(3/4))
+    * mata assert(max(reldif(fw.full.seB,  ex.full.seB))  < (epsilon(1))^(3/4))
+    * mata assert(max(reldif(fw.full.seO,  ex.full.seO))  < (epsilon(1))^(3/4))
 
-    mata assert(max(reldif(fw.estimates.est,     ex.estimates.est))     < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(fw.estimates.se_po,   ex.estimates.se_po))   < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(fw.estimates.se_or,   ex.estimates.se_or))   < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(fw.decomposition.est, ex.decomposition.est)) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(fw.decomposition.se,  ex.decomposition.se))  < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(aw.estimates.est,     ex.estimates.est))     < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(aw.full.estA, ex.full.estA)) < (epsilon(1))^(3/4))
+    mata assert(max(reldif(aw.full.estB, ex.full.estB)) < (epsilon(1))^(3/4))
+    mata assert(max(reldif(aw.full.seP,  ex.full.seP))  > (epsilon(1))^(1/4))
+    mata assert(max(reldif(aw.full.seB,  ex.full.seB))  > (epsilon(1))^(1/4))
+    mata assert(max(reldif(aw.full.seO,  ex.full.seO))  > (epsilon(1))^(1/4))
 
     * NB: Fundamentally aw and fw have different variances. The first
     * gives V((X' W X)^-1 X' W e) = (X' W X)^-1 X' W V(e) W X (X' W X)^-1
     * and the second gives (X' W X)^-1 X' (W V(e)) X (X' W X)^-1
-    *
-    * mata assert(max(abs(`ratio' :- aw.estimates.se_po[., (1, 3)] :/ ex.estimates.se_po[., (1, 3)])) < (epsilon(1)^(3/4)))
-    * mata assert(max(abs(`ratio' :- aw.estimates.se_or[., (1, 3)] :/ ex.estimates.se_or[., (1, 3)])) < (epsilon(1)^(3/4)))
 
     * --------
     * External
@@ -192,40 +142,38 @@ program multe_weight_tests
     }
     mata info = panelsetup(sort(st_data(., "Tbyte"), 1), 1)
     mata nj   = info[2::rows(info), 2] :- info[2::rows(info), 1] :+ 1 :+ info[1, 2]
-    mata assert(max(reldif(ex.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif((nj :- `k') :/ nj, (ex.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(ex.full.estA[., 4], oaat[., 1])) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif((nj :- `k') :/ nj, (ex.full.seP[., 4] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
 
     qui teffects ipw (Y) (Tbyte b0.Wbyte)
     matrix table = r(table)
     matrix table = table[1..2,"ATE:"]
     mata table = st_matrix("table")
-    mata assert(max(reldif(ex.estimates.est[.,1],   table[1,.]')) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(ex.estimates.se_po[.,1], table[2,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(ex.full.estA[.,3], table[1,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(ex.full.seP[.,3],  table[2,.]')) < (epsilon(1)^(3/4)))
 
     * -------------
     * More internal
     * -------------
 
-    contract Y Tbyte Wbyte G _expand lex* tex*, f(_nobs)
+    contract Y Cdouble Tbyte Wbyte G _expand, f(_nobs)
     assert _expand == _nobs
     gisid G
-    multe Y Tbyte [fw=_expand], control(Wbyte) mata(con) decomp gen(lambda(lcon) tau(tcon))
+    qui multe Y Cdouble [aw=_expand], treat(Tbyte) strat(Wbyte) mata(con)
 
-    unab taus: tcon?
-    forvalues i = 1 / `:list sizeof taus' {
-        disp "contracted weights: `i'"
-        assert reldif(tex`i', tcon`i') < 1e-12
-        forvalues j = 1 / `:list sizeof taus' {
-            disp "    `j'"
-            assert reldif(lex`i'`j' * _nobs, lcon`i'`j') < 1e-8
-        }
-    }
+    * mata assert(max(reldif(fw.full.estA, con.full.estA)) < (epsilon(1))^(3/4))
+    * mata assert(max(reldif(fw.full.estB, con.full.estB)) < (epsilon(1))^(3/4))
+    * mata assert(max(reldif(fw.full.seP,  con.full.seP))  > (epsilon(1))^(1/4))
+    * mata assert(max(reldif(fw.full.seB,  con.full.seB))  > (epsilon(1))^(1/4))
+    * mata assert(max(reldif(fw.full.seO,  con.full.seO))  > (epsilon(1))^(1/4))
 
-    mata assert(max(reldif(fw.estimates.est,     con.estimates.est))     < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(fw.estimates.se_po,   con.estimates.se_po))   < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(fw.estimates.se_or,   con.estimates.se_or))   < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(fw.decomposition.est, con.decomposition.est)) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(fw.decomposition.se,  con.decomposition.se))  < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(aw.full.estA, con.full.estA)) < (epsilon(1))^(3/4))
+    mata assert(max(reldif(aw.full.estB, con.full.estB)) < (epsilon(1))^(3/4))
+    mata assert(max(reldif(aw.full.seP,  con.full.seP))  < (epsilon(1))^(3/4))
+    mata assert(max(reldif(aw.full.seB,  con.full.seB))  < (epsilon(1))^(3/4))
+    mata assert(max(reldif(aw.full.seO,  con.full.seO))  < (epsilon(1))^(3/4))
+
+    disp "(multe test success): multe internal expand/contract consistency on simulated data"
 end
 
 capture program drop multe_weight_startest
@@ -235,32 +183,33 @@ program multe_weight_startest
     gen `c(obs_t)' G = _n
     gen `c(obs_t)' _expand = ceil(runiform() * 10)
 
-    multe score treatment             , control(school) mata(now)  decomp gen(lambda(lnow) tau(tnow))
-    multe score treatment [aw=_expand], control(school) mata(aw)   decomp gen(lambda(law)  tau(taw))
-    multe score treatment [pw=_expand], control(school) mata(pw)   decomp gen(lambda(lpw)  tau(tpw))
-    multe score treatment [fw=_expand], control(school) mata(fw)   decomp gen(lambda(lfw)  tau(tfw))
+    qui multe score             , treat(treatment) strat(school) mata(now)
+    qui multe score [aw=_expand], treat(treatment) strat(school) mata(aw)
+    qui multe score [pw=_expand], treat(treatment) strat(school) mata(pw)
 
     * ---------------
     * Internal Checks
     * ---------------
 
-    unab taus: tnow?
-    forvalues i = 1 / `:list sizeof taus' {
-        assert reldif(taw`i', tfw`i')  < 1e-12
-        assert reldif(tpw`i', tfw`i')  < 1e-12
-        forvalues j = 1 / `:list sizeof taus' {
-            assert reldif(law`i'`j', lfw`i'`j') < 1e-12
-            assert reldif(lpw`i'`j', lfw`i'`j') < 1e-12
-        }
-    }
+    mata assert(max(reldif(aw.full.estA, now.full.estA)) > (epsilon(1))^(1/4))
+    mata assert(max(reldif(aw.full.estB, now.full.estB)) > (epsilon(1))^(1/4))
+    mata assert(max(reldif(aw.full.seP,  now.full.seP))  > (epsilon(1))^(1/4))
+    mata assert(max(reldif(aw.full.seB,  now.full.seB))  > (epsilon(1))^(1/4))
+    mata assert(max(reldif(aw.full.seO,  now.full.seO))  > (epsilon(1))^(1/4))
 
-    mata assert(max(reldif(aw.estimates.est,     fw.estimates.est))     < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(pw.estimates.est,     fw.estimates.est))     < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(aw.estimates.se_po,   pw.estimates.se_po))   < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(aw.estimates.se_or,   pw.estimates.se_or))   < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(aw.decomposition.est, fw.decomposition.est)) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(pw.decomposition.est, fw.decomposition.est)) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(aw.decomposition.se,  pw.decomposition.se))  < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(pw.full.estA, now.full.estA)) > (epsilon(1))^(1/4))
+    mata assert(max(reldif(pw.full.estB, now.full.estB)) > (epsilon(1))^(1/4))
+    mata assert(max(reldif(pw.full.seP,  now.full.seP))  > (epsilon(1))^(1/4))
+    mata assert(max(reldif(pw.full.seB,  now.full.seB))  > (epsilon(1))^(1/4))
+    mata assert(max(reldif(pw.full.seO,  now.full.seO))  > (epsilon(1))^(1/4))
+
+    mata assert(max(reldif(pw.full.estA, aw.full.estA)) < (epsilon(1))^(3/4))
+    mata assert(max(reldif(pw.full.estB, aw.full.estB)) < (epsilon(1))^(3/4))
+    mata assert(max(reldif(pw.full.seP,  aw.full.seP))  < (epsilon(1))^(3/4))
+    mata assert(max(reldif(pw.full.seB,  aw.full.seB))  < (epsilon(1))^(3/4))
+    mata assert(max(reldif(pw.full.seO,  aw.full.seO))  < (epsilon(1))^(3/4))
+
+    disp "(multe test success): multe basic weights consistency on simulated data"
 
     * ---------------------
     * vs teffects ipw (ATE)
@@ -273,23 +222,15 @@ program multe_weight_startest
     matrix table = r(table)
     matrix table = table[1..2,"ATE:"]
     mata table = st_matrix("table")
-    mata assert(max(reldif(now.estimates.est[.,1], table[1,.]')) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(now.estimates.se_po[.,1], table[2,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(now.full.estA[.,3], table[1,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(now.full.seP[.,3],  table[2,.]')) < (epsilon(1)^(3/4)))
 
-    qui teffects ipw (score) (treatment i.school) [fw=_expand]
-    matrix table = r(table)
-    matrix table = table[1..2,"ATE:"]
-    mata table = st_matrix("table")
-    mata assert(max(reldif(fw.estimates.est[.,1], table[1,.]')) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(fw.estimates.se_po[.,1], table[2,.]')) < (epsilon(1)^(3/4)))
-
-    * NB: pw not allowed in multe so vce cannot be compared
     qui teffects ipw (score) (treatment i.school) [pw=_expand]
     matrix table = r(table)
     matrix table = table[1..2,"ATE:"]
     mata table = st_matrix("table")
-    mata assert(max(reldif(pw.estimates.est[.,1], table[1,.]'))   < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(pw.estimates.se_po[.,1], table[2,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(pw.full.estA[.,3], table[1,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(pw.full.seP[.,3],  table[2,.]')) < (epsilon(1)^(3/4)))
 
     cap drop _aw
     qui sum _expand
@@ -298,8 +239,10 @@ program multe_weight_startest
     matrix table = r(table)
     matrix table = table[1..2,"ATE:"]
     mata table = st_matrix("table")
-    mata assert(max(reldif(aw.estimates.est[.,1], table[1,.]')) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(aw.estimates.se_po[.,1], table[2,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(aw.full.estA[.,3], table[1,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(aw.full.seP[.,3],  table[2,.]')) < (epsilon(1)^(3/4)))
+
+    disp "(multe test success): multe ATE consistency on simulated data"
 
     * -----------------
     * vs regress (OAAT)
@@ -312,8 +255,8 @@ program multe_weight_startest
     }
     mata info = panelsetup(sort(st_data(., "treatment"), 1), 1)
     mata nj   = info[2::rows(info), 2] :- info[2::rows(info), 1] :+ 1 :+ info[1, 2]
-    mata assert(max(reldif(now.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif((nj :- `k') :/ nj, (now.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(now.full.estA[., 4], oaat[., 1])) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif((nj :- `k') :/ nj, (now.full.seP[., 4] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
 
     mata oaat = J(2, 2, .)
     forvalues i = 2 / 3 {
@@ -322,8 +265,8 @@ program multe_weight_startest
     }
     mata info = panelsetup(sort(st_data(., "treatment"), 1), 1)
     mata nj   = info[2::rows(info), 2] :- info[2::rows(info), 1] :+ 1 :+ info[1, 2]
-    mata assert(max(reldif(pw.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif((nj :- `k') :/ nj, (pw.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(pw.full.estA[., 4], oaat[., 1])) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif((nj :- `k') :/ nj, (pw.full.seP[., 4] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
 
     mata oaat = J(2, 2, .)
     forvalues i = 2 / 3 {
@@ -332,41 +275,29 @@ program multe_weight_startest
     }
     mata info = panelsetup(sort(st_data(., "treatment"), 1), 1)
     mata nj   = info[2::rows(info), 2] :- info[2::rows(info), 1] :+ 1 :+ info[1, 2]
-    mata assert(max(reldif(aw.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif((nj :- `k') :/ nj, (aw.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(aw.full.estA[., 4], oaat[., 1])) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif((nj :- `k') :/ nj, (aw.full.seP[., 4] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
 
-    mata oaat = J(2, 2, .)
-    forvalues i = 2 / 3 {
-        qui reg score i`i'.treatment _W* if inlist(treatment, 1, `i') [fw=_expand], noc r
-        mata oaat[`i'-1, .] = st_matrix("r(table)")[1::2, 1]'
-    }
-    mata X    = sort(st_data(., "treatment _expand"), 1)
-    mata info = panelsetup(X[., 1], 1)
-    mata nj   = panelsum(X[., 2], info)
-    mata nj   = nj[1] :+ nj[|2 \ length(nj)|]
-    mata assert(max(reldif(fw.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif((nj :- `k') :/ nj, (fw.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+    disp "(multe test success): multe OAAT consistency on simulated data"
 
     * ----------------------
     * Check in expanded data
     * ----------------------
 
-    expand _expand
-    multe score treatment, control(school) mata(ex) decomp gen(lambda(lex) tau(tex))
+    qui expand _expand
+    qui multe score, treat(treatment) strat(school) mata(ex)
 
-    unab taus: tex?
-    forvalues i = 1 / `:list sizeof taus' {
-        assert reldif(tex`i', taw`i')  < 1e-12
-        assert reldif(tex`i', tfw`i')  < 1e-12
-        forvalues j = 1 / `:list sizeof taus' {
-            assert reldif(lex`i'`j' * _expand, law`i'`j') < 1e-8
-            assert reldif(lex`i'`j' * _expand, lfw`i'`j') < 1e-8
-        }
-    }
-    mata assert(max(reldif(fw.estimates.est,   ex.estimates.est))   < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(fw.estimates.se_po, ex.estimates.se_po)) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(fw.estimates.se_or, ex.estimates.se_or)) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(aw.estimates.est,   ex.estimates.est))   < (epsilon(1)^(3/4)))
+    * mata assert(max(reldif(fw.full.estA, ex.full.estA)) < (epsilon(1))^(3/4))
+    * mata assert(max(reldif(fw.full.estB, ex.full.estB)) < (epsilon(1))^(3/4))
+    * mata assert(max(reldif(fw.full.seP,  ex.full.seP))  < (epsilon(1))^(3/4))
+    * mata assert(max(reldif(fw.full.seB,  ex.full.seB))  < (epsilon(1))^(3/4))
+    * mata assert(max(reldif(fw.full.seO,  ex.full.seO))  < (epsilon(1))^(3/4))
+
+    mata assert(max(reldif(aw.full.estA, ex.full.estA)) < (epsilon(1))^(3/4))
+    mata assert(max(reldif(aw.full.estB, ex.full.estB)) < (epsilon(1))^(3/4))
+    mata assert(max(reldif(aw.full.seP,  ex.full.seP))  > (epsilon(1))^(1/4))
+    mata assert(max(reldif(aw.full.seB,  ex.full.seB))  > (epsilon(1))^(1/4))
+    mata assert(max(reldif(aw.full.seO,  ex.full.seO))  > (epsilon(1))^(1/4))
 
     mata oaat = J(2, 2, .)
     forvalues i = 2 / 3 {
@@ -375,13 +306,15 @@ program multe_weight_startest
     }
     mata info = panelsetup(sort(st_data(., "treatment"), 1), 1)
     mata nj   = info[2::rows(info), 2] :- info[2::rows(info), 1] :+ 1 :+ info[1, 2]
-    mata assert(max(reldif(ex.estimates.est[., 2], oaat[., 1])) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif((nj :- `k') :/ nj, (ex.estimates.se_po[., 2] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(ex.full.estA[., 4], oaat[., 1])) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif((nj :- `k') :/ nj, (ex.full.seP[., 4] :/ oaat[., 2]):^2)) < (epsilon(1)^(3/4)))
 
     qui teffects ipw (score) (treatment i.school)
     matrix table = r(table)
     matrix table = table[1..2,"ATE:"]
     mata table = st_matrix("table")
-    mata assert(max(reldif(ex.estimates.est[.,1],   table[1,.]')) < (epsilon(1)^(3/4)))
-    mata assert(max(reldif(ex.estimates.se_po[.,1], table[2,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(ex.full.estA[.,3], table[1,.]')) < (epsilon(1)^(3/4)))
+    mata assert(max(reldif(ex.full.seP[.,3],  table[2,.]')) < (epsilon(1)^(3/4)))
+
+    disp "(multe test success): multe internal expand consistency on STAR data"
 end

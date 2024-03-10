@@ -2,15 +2,32 @@ capture program drop multe_unit_tests
 program  multe_unit_tests
     syntax, [Verbose]
     multe_load_test_data
+    multe_unit_fail
     multe_unit_test_Ytype, `verbose'
     multe_unit_test_Ttype, `verbose'
     multe_unit_test_Wtype, `verbose'
 end
 
+capture program drop multe_unit_fail
+program multe_unit_fail
+    * missing control|strat
+    cap multe Ydouble, treat(Tbyte)
+    local rc = ( _rc == 198 )
+    * missing treatment
+    cap multe Ydouble C*
+    local rc = `rc' & ( _rc == 198 )
+    if ( `rc' == 1 ) {
+        disp "(multe test success): fail checks present"
+    }
+    else {
+        disp "(multe test fail): fail checks missing; check stop logic"
+        exit 9
+    }
+end
+
 capture program drop multe_load_test_data
 program multe_load_test_data
     syntax, [nobs(int 1000) ktreat(int 5)]
-
     clear
     qui set obs `nobs'
     gen byte   Tbyte   = ceil(runiform() * `ktreat')
@@ -25,13 +42,17 @@ program multe_load_test_data
     gen float  Wfloat  = (Wbyte - 2.5) * `c(pi)'
     gen double Wdouble = (Wbyte - 2.5) * `c(pi)' / 123456
     gen str4   Wstr    = "str" + string(Wbyte)
-
-    gen byte    Ybyte   = Tbyte - Wbyte + runiform()
-    gen int     Yint    = Tbyte - Wbyte + runiform()
-    gen long    Ylong   = Tbyte - Wbyte + runiform()
-    gen float   Yfloat  = Tbyte - Wbyte + runiform()
-    gen double  Ydouble = Tbyte - Wbyte + runiform()
-    gen str4    Ystr    = "str" + string(Tbyte - Wbyte + runiform())
+    gen byte   Cbyte   = mod(_n, 10)
+    gen int    Cint    = Wbyte * 1234
+    gen long   Clong   = Wbyte * 123456
+    gen float  Cfloat  = (Wbyte - 2.5) * `c(pi)'
+    gen double Cdouble = (Wbyte - 2.5) * `c(pi)' / 123456
+    gen byte   Ybyte   = Tbyte - Wbyte + Cdouble + runiform()
+    gen int    Yint    = Tbyte - Wbyte + Cdouble + runiform()
+    gen long   Ylong   = Tbyte - Wbyte + Cdouble + runiform()
+    gen float  Yfloat  = Tbyte - Wbyte + Cdouble + runiform()
+    gen double Ydouble = Tbyte - Wbyte + Cdouble + runiform()
+    gen str4   Ystr    = "str" + string(Tbyte - Wbyte + runiform())
 end
 
 capture program drop multe_unit_test_Ytype
@@ -49,10 +70,14 @@ program multe_unit_test_Ytype
     local Ypass Ybyte Yint Ylong Yfloat Ydouble
     local Yfail Ystr
     foreach Y in `Ypass' `Yfail' {
-        cap multe `Y' Tbyte, control(Wbyte)
+        cap multe `Y', treat(Tbyte) strat(Wbyte)
         local rc1 = _rc
+        cap multe `Y' C*, treat(Tbyte) strat(Wbyte)
+        local rc2 = _rc
+        cap multe `Y' Cdouble, treat(Tbyte)
+        local rc3 = _rc
         if ( `:list Y in Ypass' ) {
-            if ( `rc1' != 0 ) {
+            if ( (`rc1' != 0)  | (`rc2' != 0) | (`rc3' != 0) ) {
                 disp "(multe test fail): depvar type `:subinstr local Y "Y" ""' failed with _rc = `rc1'"
                 exit 9
             }
@@ -61,7 +86,7 @@ program multe_unit_test_Ytype
             }
         }
         if ( `:list Y in Yfail' ) {
-            if ( `rc1' != 109 ) {
+            if ( (`rc1' != 109) | (`rc2' != 109) | (`rc3' != 109) ) {
                 disp "(multe test fail): depvar type `:subinstr local Y "Y" ""' did not fail with _rc =  109 as expected (_rc = `rc1')"
                 exit 9
             }
@@ -86,23 +111,24 @@ program multe_unit_test_Ttype
     }
 
     tempname Texpected Tresult
-    local Tpass Tbyte Tint Tlong Tfloat Tdouble
-    local Tfail Tstr
+    local Tpass Tbyte Tint Tlong Tfloat Tdouble Tstr
     foreach T in `Tpass' `Tfail' {
-        cap multe Ydouble `T', control(Wbyte)
+        cap multe Ydouble Cdouble, treat(`T') strat(Wbyte)
         local rc1 = _rc
         if ( `:list T in Tpass' ) {
-            mata st_numscalar("`Texpected'", sort(uniqrows(st_data(., "`T'")), 1)[1])
-            mata st_numscalar("`Tresult'",   `e(mata)'.estimates.Tvalues[1])
-            cap assert scalar(`Texpected') == scalar(`Tresult')
+            if strpos("`:type `T''", "str") {
+                cap mata assert(all(sort(uniqrows(st_sdata(., "`T'")), 1) :== `e(mata)'.Tlevels'))
+            }
+            else {
+                cap mata assert(all(reldif(sort(uniqrows(st_data(., "`T'")), 1), strtoreal(`e(mata)'.Tlevels')) :< epsilon(1)^(0.75)))
+            }
             local rc2 = _rc
-
             if ( `rc1' != 0 ) {
                 disp "(multe test fail): treatment type `:subinstr local T "T" ""' failed with _rc = `rc1'"
                 exit 9
             }
             else if ( `rc2' != 0 ) {
-                disp "(multe test fail): treatment type `:subinstr local T "T" ""' levels not internally sorted"
+                disp "(multe test fail): treatment type `:subinstr local T "T" ""' levels computed internally do not match the data"
                 exit 9
             }
             else {
@@ -136,7 +162,7 @@ program multe_unit_test_Wtype
     tempname Wexpected Wresult
     local Wpass Wbyte Wint Wlong Wfloat Wdouble Wstr
     foreach W in `Wpass' {
-        cap multe Ydouble Tbyte, control(`W')
+        cap multe Ydouble Cdouble, treat(Tbyte) strat(`W')
         local rc1 = _rc
         if ( `rc1' != 0 ) {
             disp "(multe test fail): control type `:subinstr local W "W" ""' failed with _rc = `rc1'"

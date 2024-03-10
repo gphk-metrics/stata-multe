@@ -246,8 +246,8 @@ struct MulTE_Results scalar MulTE::decomposition(real scalar isorted)
 
     res.seP[., 2] = sqrt(diagonal(res.Vpop_OWN))
     res.seB[., 2] = sqrt(diagonal(res.Vdiff_OWN))
-    res.seB[., 4] = sqrt(diagonal(res.Vpop_EW))
-    res.seP[., 4] = sqrt(diagonal(res.Vdiff_EW))
+    res.seP[., 4] = sqrt(diagonal(res.Vpop_EW))
+    res.seB[., 4] = sqrt(diagonal(res.Vdiff_EW))
     res.seO[., 4] = sqrt(diagonal(res.Vo_EW))
 
     // TODO: If there are collinear variables within treatment (i.e. in
