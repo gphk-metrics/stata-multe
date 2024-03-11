@@ -16,15 +16,15 @@ From Stata
 ```stata
 local github "https://raw.githubusercontent.com"
 cap noi net uninstall multe
-net install multe, from(`github'/gphk-metrics/stata-multe/issue14_copyR/)
+net install multe, from(`github'/gphk-metrics/stata-multe/main/)
 ```
 
 You can also clone or download the code manually, e.g. to
-`stata-multe-issue14_copyR`, and install from a local folder:
+`stata-multe-main`, and install from a local folder:
 
 ```stata
 cap noi net uninstall multe
-net install multe, from(`c(pwd)'/stata-multe-issue14_copyR)
+net install multe, from(`c(pwd)'/stata-multe-main)
 ```
 
 ### Usage
