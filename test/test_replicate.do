@@ -14,7 +14,7 @@ program multe_replicate_tests
     else {
         use `"`r(fn) '"', clear
     }
-    cap `noisily' multe score treatment, control(school)
+    cap `noisily' multe score, treat(treatment) stratum(school) cluster(school)
     if ( _rc != 0 ) {
         disp "(multe test fail): multe run on STAR data failed with _rc = `rc1'"
         exit 9

@@ -1,4 +1,4 @@
-v 0.3.2
+v 1.1.0
 d
 d 'MULTE': Multiple Treatment Effects regression with saturated group control
 d
@@ -18,7 +18,7 @@ d KW: Kolesár
 d
 d Requires: Stata version 14.1
 d
-d Distribution-Date: 20220816
+d Distribution-Date: 20240309
 d
 d Author: Paul Goldsmith-Pinkham
 d Support: email [email]
@@ -35,3 +35,4 @@ f doc/multe.sthlp
 f src/mata/multe.mata
 f src/mata/multe_helpers.mata
 f test/example_star.dta
+f test/example_fryer_levitt.dta

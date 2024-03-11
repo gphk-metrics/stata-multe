@@ -10,4 +10,4 @@ set obs `nobs'
 gen T = ceil(runiform() * `ktreat')
 gen W = mod(_n, 100)
 gen Y = T + runiform()
-multe Y T, control(W)
+multe Y, treat(T) strat(W)

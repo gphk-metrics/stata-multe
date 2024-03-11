@@ -1,4 +1,6 @@
 library(readstata13)
+library(multe)
+
 data_dir <- paste0("~/Dropbox/GPH_ExaminerDesign", "/Applications/STAR/Data/STARgk_Lambdas.dta")
 dt <- readstata13::read.dta13(data_dir, generate.factors=TRUE)
 dt$treatment <- "regular"
@@ -13,8 +15,6 @@ dt$teacher <- as.factor(dt$teacher)
 Wm <- outer(dt$school, levels(dt$school), `==`) + 0
 Y  <- dt$score
 X  <- dt$treatment
-rg <- te_estimates(dt$score, dt$treatment, Wm)
-print(knitr::kable(rg))
-ret <- decomposition(dt$score, dt$treatment, Wm)
-print(ret)
-print(decomposition2(dt$score, dt$treatment, Wm))
+rg <- lm(Y ~ X + Wm)
+m  <- multe(rg, "X", dt$school)
+print(m)
