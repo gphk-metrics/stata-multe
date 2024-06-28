@@ -11,13 +11,24 @@ based on R's [multe](https://github.com/kolesarm/multe?tab=readme-ov-file) packa
 
 ### Installation
 
-From Stata
+From Stata, latest version:
 
 ```stata
 local github "https://raw.githubusercontent.com"
 cap noi net uninstall multe
 net install multe, from(`github'/gphk-metrics/stata-multe/main/)
 ```
+
+From Stata, for a specific tagged version (see [Tags](https://github.com/gphk-metrics/stata-multe/tags)):
+
+```stata
+local github "https://raw.githubusercontent.com"
+local multeversion "1.1.0.1"
+cap noi net uninstall multe
+net install multe, from(`github'/gphk-metrics/stata-multe/`mutleversion'/)
+```
+
+
 
 You can also clone or download the code manually, e.g. to
 `stata-multe-main`, and install from a local folder:
