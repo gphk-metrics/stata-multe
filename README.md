@@ -37,7 +37,7 @@ cap noi net uninstall multe
 net install multe, from(`github'/gphk-metrics/stata-multe/`mutleversion'/)
 ```
 
-See the [tags](https://github.com/gphk-metrics/stata-multe/tags)) page for all
+See the [tags](https://github.com/gphk-metrics/stata-multe/tags) page for all
 available tagged versions.
 
 ### Usage
