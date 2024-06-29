@@ -19,17 +19,6 @@ cap noi net uninstall multe
 net install multe, from(`github'/gphk-metrics/stata-multe/main/)
 ```
 
-From Stata, for a specific tagged version (see [Tags](https://github.com/gphk-metrics/stata-multe/tags)):
-
-```stata
-local github "https://raw.githubusercontent.com"
-local multeversion "1.1.0.1"
-cap noi net uninstall multe
-net install multe, from(`github'/gphk-metrics/stata-multe/`mutleversion'/)
-```
-
-
-
 You can also clone or download the code manually, e.g. to
 `stata-multe-main`, and install from a local folder:
 
@@ -37,6 +26,19 @@ You can also clone or download the code manually, e.g. to
 cap noi net uninstall multe
 net install multe, from(`c(pwd)'/stata-multe-main)
 ```
+
+We typically recommend installing the latest version; however, if you need a specific
+tagged version (e.g. for replication purposes):
+
+```stata
+local github "https://raw.githubusercontent.com"
+local multeversion "1.1.0"
+cap noi net uninstall multe
+net install multe, from(`github'/gphk-metrics/stata-multe/`mutleversion'/)
+```
+
+See the [tags](https://github.com/gphk-metrics/stata-multe/tags)) page for all
+available tagged versions.
 
 ### Usage
 
