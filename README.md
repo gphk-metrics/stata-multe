@@ -34,7 +34,7 @@ tagged version (e.g. for replication purposes):
 local github "https://raw.githubusercontent.com"
 local multeversion "1.1.0"
 cap noi net uninstall multe
-net install multe, from(`github'/gphk-metrics/stata-multe/`mutleversion'/)
+net install multe, from(`github'/gphk-metrics/stata-multe/`multeversion'/)
 ```
 
 See the [tags](https://github.com/gphk-metrics/stata-multe/tags) page for all
